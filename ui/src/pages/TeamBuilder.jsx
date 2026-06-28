@@ -21,6 +21,7 @@ const TYPES = Object.keys(TYPE_COLORS);
 const PAGE_SIZE_OPTIONS = [30, 60, 90, 120];
 const MAX_TEAM = 6;
 const STORAGE_KEY = "poke-team";
+const BST_HARD_MAX = 720;
 
 
 export default function TeamBuilder() {
@@ -48,6 +49,12 @@ export default function TeamBuilder() {
   const [genFilter, setGenFilter] = useState(new Set());
   const [genOpen, setGenOpen] = useState(false);
   const genRef = useRef(null);
+  const [bstMin, setBstMin] = useState(0);
+  const [bstMax, setBstMax] = useState(BST_HARD_MAX);
+  const [bstLabelMin, setBstLabelMin] = useState(0);
+  const [bstLabelMax, setBstLabelMax] = useState(BST_HARD_MAX);
+  const [bstOpen, setBstOpen] = useState(false);
+  const bstRef = useRef(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(60);
 
@@ -73,6 +80,15 @@ export default function TeamBuilder() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [genOpen]);
 
+  useEffect(() => {
+    if (!bstOpen) return;
+    function handleClick(e) {
+      if (bstRef.current && !bstRef.current.contains(e.target)) setBstOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [bstOpen]);
+
   const byId = useMemo(() => {
     const m = new Map();
     if (allPokemon) for (const p of allPokemon) m.set(p.id, p);
@@ -91,14 +107,16 @@ export default function TeamBuilder() {
     [team, chart]
   );
 
-  // Suggestion pool: type + gen filters only (search does not narrow suggestions).
+  // Suggestion pool: type, gen, and BST filters (search does not narrow suggestions).
   const suggestionPool = useMemo(() => {
     if (!allPokemon) return [];
     let list = allPokemon;
     if (typeFilter.size) list = list.filter((p) => p.types.some((t) => typeFilter.has(t)));
     if (genFilter.size) list = list.filter((p) => genFilter.has(p.generation_id));
+    if (bstMin > 0 || bstMax < BST_HARD_MAX)
+      list = list.filter((p) => (p.bst || 0) >= bstMin && (p.bst || 0) <= bstMax);
     return list;
-  }, [allPokemon, typeFilter, genFilter]);
+  }, [allPokemon, typeFilter, genFilter, bstMin, bstMax]);
 
   // Pool list: all filters including search.
   const filtered = useMemo(() => {
@@ -408,6 +426,70 @@ export default function TeamBuilder() {
                     type="button"
                     className="gen-filter__clear"
                     onClick={() => { setGenFilter(new Set()); resetPage(); }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="gen-filter" ref={bstRef}>
+            <button
+              type="button"
+              className={`gen-filter__btn filter-select${(bstLabelMin > 0 || bstLabelMax < BST_HARD_MAX) ? " gen-filter__btn--active" : ""}`}
+              onClick={() => setBstOpen((o) => !o)}
+            >
+              {bstLabelMin > 0 || bstLabelMax < BST_HARD_MAX ? `BST ${bstLabelMin}–${bstLabelMax}` : "All BST"}
+              <span className="gen-filter__arrow">{bstOpen ? "▲" : "▼"}</span>
+            </button>
+            {bstOpen && (
+              <div className="gen-filter__dropdown bst-filter__dropdown">
+                <div className="bst-filter__labels">
+                  <span>Min: <strong>{bstMin}</strong></span>
+                  <span>Max: <strong>{bstMax}</strong></span>
+                </div>
+                <div className="bst-range">
+                  <div className="bst-range__track">
+                    <div
+                      className="bst-range__fill"
+                      style={{
+                        left:  `${(bstMin / BST_HARD_MAX) * 100}%`,
+                        right: `${(1 - bstMax / BST_HARD_MAX) * 100}%`,
+                      }}
+                    />
+                  </div>
+                  <input
+                    type="range"
+                    className="bst-range__input"
+                    min="0" max={BST_HARD_MAX} step="5"
+                    value={bstMin}
+                    onChange={(e) => {
+                      const val = Math.min(Number(e.target.value), bstMax);
+                      setBstMin(val);
+                      resetPage();
+                    }}
+                    onMouseUp={(e) => setBstLabelMin(Math.min(Number(e.target.value), bstMax))}
+                    onTouchEnd={(e) => setBstLabelMin(Math.min(Number(e.target.value), bstMax))}
+                  />
+                  <input
+                    type="range"
+                    className="bst-range__input"
+                    min="0" max={BST_HARD_MAX} step="5"
+                    value={bstMax}
+                    onChange={(e) => {
+                      const val = Math.max(Number(e.target.value), bstMin);
+                      setBstMax(val);
+                      resetPage();
+                    }}
+                    onMouseUp={(e) => setBstLabelMax(Math.max(Number(e.target.value), bstMin))}
+                    onTouchEnd={(e) => setBstLabelMax(Math.max(Number(e.target.value), bstMin))}
+                  />
+                </div>
+                {(bstLabelMin > 0 || bstLabelMax < BST_HARD_MAX) && (
+                  <button
+                    type="button"
+                    className="gen-filter__clear"
+                    onClick={() => { setBstMin(0); setBstMax(BST_HARD_MAX); setBstLabelMin(0); setBstLabelMax(BST_HARD_MAX); resetPage(); }}
                   >
                     Clear
                   </button>
