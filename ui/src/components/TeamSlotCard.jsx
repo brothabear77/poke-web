@@ -17,6 +17,7 @@ export default function TeamSlotCard({ pokemon, onRemove, position, leaving }) {
     >
       <PokemonInfoBtn pokemon={pokemon} side={side} />
 
+      <div className="tb__slot-num">#{String(pokemon.id).padStart(4, "0")}</div>
       <img
         className="tb__slot-sprite"
         src={assetUrl(`/sprites/pokemon/${pokemon.id}.png`)}
