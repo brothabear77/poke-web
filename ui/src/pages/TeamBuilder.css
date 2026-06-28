@@ -81,6 +81,13 @@
   pointer-events: none;
 }
 
+.tb__slot-num {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #aaa;
+  align-self: flex-start;
+}
+
 .tb__slot-label {
   color: #aaa;
   font-size: 0.8rem;
