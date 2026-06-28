@@ -91,27 +91,32 @@ export default function TeamBuilder() {
     [team, chart]
   );
 
-  // --- pool filtering --- (also drives the suggestion candidate pool below)
-  const filtered = useMemo(() => {
+  // Suggestion pool: type + gen filters only (search does not narrow suggestions).
+  const suggestionPool = useMemo(() => {
     if (!allPokemon) return [];
     let list = allPokemon;
+    if (typeFilter.size) list = list.filter((p) => p.types.some((t) => typeFilter.has(t)));
+    if (genFilter.size) list = list.filter((p) => genFilter.has(p.generation_id));
+    return list;
+  }, [allPokemon, typeFilter, genFilter]);
+
+  // Pool list: all filters including search.
+  const filtered = useMemo(() => {
+    if (!allPokemon) return [];
+    let list = suggestionPool;
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       list = list.filter((p) => p.name.includes(q) || String(p.id).includes(q));
     }
-    if (typeFilter.size) list = list.filter((p) => p.types.some((t) => typeFilter.has(t)));
-    if (genFilter.size) list = list.filter((p) => genFilter.has(p.generation_id));
     return list;
-  }, [allPokemon, search, typeFilter, genFilter]);
+  }, [suggestionPool, search]);
 
-  // Suggestions are drawn from the same filtered pool the list shows, so the
-  // search / type / gen filters narrow the recommendations too.
   const suggestions = useMemo(
     () =>
-      chart && filtered.length && team.length < MAX_TEAM
-        ? suggestTeam(filtered, chart, team, { includeLegendary }, 8, weights)
+      chart && suggestionPool.length && team.length < MAX_TEAM
+        ? suggestTeam(suggestionPool, chart, team, { includeLegendary }, 8, weights)
         : [],
-    [filtered, chart, team, includeLegendary, weights]
+    [suggestionPool, chart, team, includeLegendary, weights]
   );
 
   // --- team mutations ---
