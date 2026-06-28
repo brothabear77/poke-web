@@ -1,0 +1,1 @@
+{"id": 217, "chain": {"species_name": "cherubi", "evolution_details": [], "evolves_to": [{"species_name": "cherrim", "evolution_details": [{"trigger": "level-up", "min_level": 25, "item": null, "happiness": null, "time_of_day": null, "held_item": null, "known_move": null}], "evolves_to": []}]}}

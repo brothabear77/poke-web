@@ -1,0 +1,1 @@
+{"id": 116, "chain": {"species_name": "mantyke", "evolution_details": [], "evolves_to": [{"species_name": "mantine", "evolution_details": [{"trigger": "level-up", "min_level": null, "item": null, "happiness": null, "time_of_day": null, "held_item": null, "known_move": null}], "evolves_to": []}]}}

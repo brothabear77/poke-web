@@ -1,0 +1,1 @@
+{"id": 91, "chain": {"species_name": "bonsly", "evolution_details": [], "evolves_to": [{"species_name": "sudowoodo", "evolution_details": [{"trigger": "level-up", "min_level": null, "item": null, "happiness": null, "time_of_day": null, "held_item": null, "known_move": "mimic"}], "evolves_to": []}]}}

@@ -1,0 +1,10 @@
+{
+  "name": "poke-web",
+  "private": true,
+  "scripts": {
+    "dev":     "npm run dev     --prefix ui",
+    "build":   "npm run build   --prefix ui",
+    "preview": "npm run preview --prefix ui",
+    "lint":    "npm run lint    --prefix ui"
+  }
+}

@@ -1,0 +1,1 @@
+{"id": 493, "chain": {"species_name": "maschiff", "evolution_details": [], "evolves_to": [{"species_name": "mabosstiff", "evolution_details": [{"trigger": "level-up", "min_level": 30, "item": null, "happiness": null, "time_of_day": null, "held_item": null, "known_move": null}], "evolves_to": []}]}}

@@ -1,0 +1,1 @@
+{"id": 35, "chain": {"species_name": "farfetchd", "evolution_details": [], "evolves_to": [{"species_name": "sirfetchd", "evolution_details": [{"trigger": "three-critical-hits", "min_level": null, "item": null, "happiness": null, "time_of_day": null, "held_item": null, "known_move": null}], "evolves_to": []}]}}

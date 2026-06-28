@@ -1,0 +1,1 @@
+{"id": 465, "chain": {"species_name": "duraludon", "evolution_details": [], "evolves_to": [{"species_name": "archaludon", "evolution_details": [{"trigger": "use-item", "min_level": null, "item": "metal-alloy", "happiness": null, "time_of_day": null, "held_item": null, "known_move": null}], "evolves_to": []}]}}

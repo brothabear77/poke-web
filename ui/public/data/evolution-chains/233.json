@@ -1,0 +1,1 @@
+{"id": 233, "chain": {"species_name": "hippopotas", "evolution_details": [], "evolves_to": [{"species_name": "hippowdon", "evolution_details": [{"trigger": "level-up", "min_level": 34, "item": null, "happiness": null, "time_of_day": null, "held_item": null, "known_move": null}], "evolves_to": []}]}}

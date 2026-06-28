@@ -1,0 +1,1 @@
+{"id": 56, "chain": {"species_name": "staryu", "evolution_details": [], "evolves_to": [{"species_name": "starmie", "evolution_details": [{"trigger": "use-item", "min_level": null, "item": "water-stone", "happiness": null, "time_of_day": null, "held_item": null, "known_move": null}], "evolves_to": []}]}}

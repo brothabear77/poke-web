@@ -1,0 +1,1 @@
+{"id": 177, "chain": {"species_name": "anorith", "evolution_details": [], "evolves_to": [{"species_name": "armaldo", "evolution_details": [{"trigger": "level-up", "min_level": 40, "item": null, "happiness": null, "time_of_day": null, "held_item": null, "known_move": null}], "evolves_to": []}]}}

@@ -1,0 +1,1 @@
+{"id": 505, "chain": {"species_name": "varoom", "evolution_details": [], "evolves_to": [{"species_name": "revavroom", "evolution_details": [{"trigger": "level-up", "min_level": 40, "item": null, "happiness": null, "time_of_day": null, "held_item": null, "known_move": null}], "evolves_to": []}]}}

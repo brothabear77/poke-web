@@ -1,0 +1,1 @@
+{"id": 511, "chain": {"species_name": "cetoddle", "evolution_details": [], "evolves_to": [{"species_name": "cetitan", "evolution_details": [{"trigger": "use-item", "min_level": null, "item": "ice-stone", "happiness": null, "time_of_day": null, "held_item": null, "known_move": null}], "evolves_to": []}]}}

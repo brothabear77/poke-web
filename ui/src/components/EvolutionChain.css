@@ -1,0 +1,92 @@
+.evo-chain {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.evo-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.evo-node a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
+}
+
+.evo-node a:hover .evo-name {
+  text-decoration: underline;
+}
+
+.evo-sprite {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.evo-name {
+  font-size: 0.75rem;
+  text-transform: capitalize;
+  font-weight: 600;
+  text-align: center;
+  margin-top: 2px;
+}
+
+.evo-children {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.evo-branch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.evo-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.evo-trigger {
+  color: #888;
+  font-size: 0.65rem;
+  text-align: center;
+  max-width: 70px;
+  text-transform: capitalize;
+}
+
+.evo-arrow-shaft {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.evo-arrow-line {
+  display: block;
+  width: 30px;
+  height: 2px;
+  background: #ddd;
+}
+
+.evo-arrow-head {
+  font-size: 1.2rem;
+  color: #bbb;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+.evo-loading {
+  color: #aaa;
+  font-size: 0.85rem;
+}
