@@ -1,0 +1,1 @@
+{"id": 446, "chain": {"species_name": "toxel", "evolution_details": [], "evolves_to": [{"species_name": "toxtricity", "evolution_details": [{"trigger": "level-up", "min_level": 30, "item": null, "happiness": null, "time_of_day": null, "held_item": null, "known_move": null}], "evolves_to": []}]}}

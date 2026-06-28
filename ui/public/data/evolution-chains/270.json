@@ -1,0 +1,1 @@
+{"id": 270, "chain": {"species_name": "drilbur", "evolution_details": [], "evolves_to": [{"species_name": "excadrill", "evolution_details": [{"trigger": "level-up", "min_level": 31, "item": null, "happiness": null, "time_of_day": null, "held_item": null, "known_move": null}], "evolves_to": []}]}}

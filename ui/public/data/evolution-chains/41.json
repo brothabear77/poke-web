@@ -1,0 +1,1 @@
+{"id": 41, "chain": {"species_name": "onix", "evolution_details": [], "evolves_to": [{"species_name": "steelix", "evolution_details": [{"trigger": "trade", "min_level": null, "item": null, "happiness": null, "time_of_day": null, "held_item": "metal-coat", "known_move": null}], "evolves_to": []}]}}

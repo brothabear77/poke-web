@@ -1,0 +1,152 @@
+* { box-sizing: border-box; }
+
+.app {
+  min-height: 100vh;
+  background: #CE0022;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  background: #CE0022;
+  border-bottom: 1px solid rgba(0,0,0,0.15);
+  padding: 0 24px;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: none;
+}
+
+.app-logo {
+  height: 44px;
+  width: auto;
+  flex-shrink: 0;
+}
+
+.app-nav {
+  display: flex;
+  gap: 4px;
+}
+
+.nav-link {
+  padding: 6px 14px;
+  border-radius: 20px;
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.75);
+  transition: all 0.15s;
+}
+
+.nav-link:hover { background: rgba(0,0,0,0.15); color: #fff; }
+.nav-link.active { background: rgba(0,0,0,0.25); color: #fff; }
+
+.app-main {
+  flex: 1;
+  padding: 20px 24px 40px;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* --- Hamburger button (hidden on desktop) --- */
+.app-hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  margin-left: auto;
+  background: none;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.app-hamburger:hover { background: rgba(0,0,0,0.15); }
+
+.app-hamburger span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: #fff;
+  border-radius: 2px;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+/* --- Side drawer --- */
+.app-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 240px;
+  height: 100%;
+  background: #CE0022;
+  z-index: 500;
+  transform: translateX(-100%);
+  transition: transform 0.27s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 4px 0 24px rgba(0,0,0,0.25);
+}
+
+.app-drawer--open { transform: translateX(0); }
+
+.app-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 499;
+  animation: fade-in-backdrop 0.2s ease;
+}
+
+@keyframes fade-in-backdrop {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.app-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  height: 54px;
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+  flex-shrink: 0;
+}
+
+.app-drawer-close {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.8);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  line-height: 1;
+}
+
+.app-drawer-close:hover { background: rgba(0,0,0,0.2); color: #fff; }
+
+.app-drawer-links {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 8px;
+  gap: 2px;
+}
+
+.app-drawer-links .nav-link {
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.95rem;
+}
+
+/* --- Responsive breakpoint --- */
+@media (max-width: 640px) {
+  .app-nav--desktop { display: none; }
+  .app-hamburger { display: flex; }
+}

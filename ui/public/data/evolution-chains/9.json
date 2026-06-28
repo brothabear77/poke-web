@@ -1,0 +1,1 @@
+{"id": 9, "chain": {"species_name": "ekans", "evolution_details": [], "evolves_to": [{"species_name": "arbok", "evolution_details": [{"trigger": "level-up", "min_level": 22, "item": null, "happiness": null, "time_of_day": null, "held_item": null, "known_move": null}], "evolves_to": []}]}}

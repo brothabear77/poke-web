@@ -1,0 +1,1 @@
+{"id": 264, "chain": {"species_name": "panpour", "evolution_details": [], "evolves_to": [{"species_name": "simipour", "evolution_details": [{"trigger": "use-item", "min_level": null, "item": "water-stone", "happiness": null, "time_of_day": null, "held_item": null, "known_move": null}], "evolves_to": []}]}}

@@ -1,0 +1,1 @@
+{"id": 284, "chain": {"species_name": "dwebble", "evolution_details": [], "evolves_to": [{"species_name": "crustle", "evolution_details": [{"trigger": "level-up", "min_level": 34, "item": null, "happiness": null, "time_of_day": null, "held_item": null, "known_move": null}], "evolves_to": []}]}}

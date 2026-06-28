@@ -1,0 +1,102 @@
+.moves-loading {
+  padding: 60px;
+  text-align: center;
+  color: #aaa;
+}
+
+.mb-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.mb-count {
+  font-size: 0.82rem;
+  color: #ccc;
+  margin-bottom: 10px;
+}
+
+.mb-table-wrap {
+  overflow-x: auto;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.mb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.83rem;
+  background: #fff;
+}
+
+.mb-th {
+  background: #f5f5f5;
+  padding: 9px 12px;
+  text-align: left;
+  font-size: 0.72rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  border-bottom: 2px solid #eee;
+}
+
+.mb-th--num { text-align: right; }
+.mb-th--sorted { color: #5a8ef8; }
+.mb-th:hover { color: #5a8ef8; }
+
+.mb-sort-icon { font-size: 0.65rem; }
+
+.mb-td {
+  padding: 7px 12px;
+  border-top: 1px solid #f0f0f0;
+  vertical-align: middle;
+}
+
+.mb-td--num { text-align: right; }
+.mb-td--muted { color: #bbb; }
+.mb-td--name { font-weight: 600; text-transform: capitalize; }
+.mb-td--effect {
+  font-size: 0.75rem;
+  color: #777;
+  max-width: 260px;
+}
+
+tbody tr:hover td { background: #fafbff; }
+
+.mb-class {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  text-transform: capitalize;
+}
+
+.mb-class--physical { background: #f5e6d3; color: #b06020; }
+.mb-class--special  { background: #d3e4f5; color: #2060b0; }
+.mb-class--status   { background: #e8e8e8; color: #606060; }
+
+.mb-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.mb-pagination button {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.15s;
+}
+
+.mb-pagination button:hover:not(:disabled) { background: #f0f4ff; }
+.mb-pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+.mb-pagination span { font-size: 0.85rem; color: #ccc; }

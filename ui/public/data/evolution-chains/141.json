@@ -1,0 +1,1 @@
+{"id": 141, "chain": {"species_name": "surskit", "evolution_details": [], "evolves_to": [{"species_name": "masquerain", "evolution_details": [{"trigger": "level-up", "min_level": 22, "item": null, "happiness": null, "time_of_day": null, "held_item": null, "known_move": null}], "evolves_to": []}]}}
