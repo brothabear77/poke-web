@@ -476,6 +476,14 @@
   .tb__analysis { grid-template-columns: 1fr; }
 }
 
+@media (max-width: 1360px) {
+  /* Every 8th pool card starting at 1 is in the leftmost column — pop right */
+  .tb__grid .pokemon-card:nth-child(8n+1) .pib__popover {
+    left: 0;
+    right: auto;
+  }
+}
+
 @media (max-width: 720px) {
   /* 3-col: col 1 (slots 1,4) pops right; col 3 (slots 3,6) pops left */
   .tb__slot:nth-child(3n+1) .pib__popover { left: 0; right: auto; }
