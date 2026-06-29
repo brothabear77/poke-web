@@ -1,0 +1,45 @@
+name: Update Champions usage data
+
+on:
+  schedule:
+    - cron: "0 5 * * *"   # daily at 05:00 UTC
+  workflow_dispatch:        # allow manual runs from the Actions tab
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: champions-data
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch Champions usage data
+        run: python3 scripts/fetch_champions_usage.py
+
+      - name: Create or update pull request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: bot/champions-data
+          commit-message: "data: refresh Pokemon Champions usage data"
+          title: "Refresh Pokemon Champions usage data"
+          body: |
+            Automated refresh of competitive usage data from
+            [championsbattledata.com](https://championsbattledata.com).
+
+            Source data version and any unmapped/failed Pokemon are recorded in
+            `ui/public/data/usage/_meta.json`. Review the diff, then merge to
+            publish via the existing Pages deploy.
+
+            _This fan API is not affiliated with Nintendo / The Pokemon Company._
+          labels: data, automated
+          delete-branch: true
