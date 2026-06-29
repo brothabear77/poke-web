@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useData } from "../hooks/useData";
 import TypeBadge from "../components/TypeBadge";
@@ -5,6 +6,7 @@ import StatBar from "../components/StatBar";
 import EvolutionChain from "../components/EvolutionChain";
 import FitScale from "../components/FitScale";
 import { assetUrl } from "../utils/assetUrl";
+import { buildChart, defenseMultiplier, ALL_TYPES } from "../utils/typeChart";
 import "./PokemonDetail.css";
 
 const STAT_ORDER = ["hp", "attack", "defense", "special-attack", "special-defense", "speed"];
@@ -13,6 +15,23 @@ export default function PokemonDetail() {
   const { id } = useParams();
   const { data: poke, loading, error } = useData(`/data/pokemon/${id}.json`);
   const { data: pokemonIndex } = useData("/data/pokemon-index.json");
+  const { data: typesData } = useData("/data/types.json");
+
+  const chart = useMemo(() => buildChart(typesData), [typesData]);
+
+  const defenses = useMemo(() => {
+    if (!chart || !poke?.types) return null;
+    const groups = { 0: [], 0.25: [], 0.5: [], 2: [], 4: [] };
+    for (const att of ALL_TYPES) {
+      const m = defenseMultiplier(chart, att, poke.types);
+      if (m === 0)        groups[0].push(att);
+      else if (m <= 0.25) groups[0.25].push(att);
+      else if (m < 1)     groups[0.5].push(att);
+      else if (m >= 4)    groups[4].push(att);
+      else if (m >= 2)    groups[2].push(att);
+    }
+    return groups;
+  }, [chart, poke?.types]);
 
   if (loading) return <div className="detail-loading">Loading...</div>;
   if (error || !poke) return <div className="detail-error">Pokémon not found.</div>;
@@ -116,6 +135,31 @@ export default function PokemonDetail() {
             {poke.is_baby && <DetailKV k="Baby" v="Yes" />}
           </div>
         </section>
+
+        {/* Type Matchups */}
+        {defenses && (
+          <section className="detail__section" style={{ alignSelf: "start" }}>
+            <h2 className="detail__section-title">Type Matchups</h2>
+            <div className="detail__defenses">
+              {[
+                { key: 4,    label: "Weak",    sub: "4×"  },
+                { key: 2,    label: "Weak",    sub: "2×"  },
+                { key: 0.5,  label: "Resists", sub: "½×"  },
+                { key: 0.25, label: "Resists", sub: "¼×"  },
+                { key: 0,    label: "Immune",  sub: "0×"  },
+              ].filter(({ key }) => defenses[key].length > 0).map(({ key, label, sub }) => (
+                <div key={key} className="detail__defense-group">
+                  <div className="detail__defense-label">
+                    {label} <span className="detail__defense-mult">{sub}</span>
+                  </div>
+                  <div className="detail__defense-badges">
+                    {defenses[key].map((t) => <TypeBadge key={t} type={t} small />)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Evolution */}
         {poke.evolution_chain_id && (

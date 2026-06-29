@@ -210,6 +210,37 @@
 }
 
 
+.detail__defenses {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detail__defense-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.detail__defense-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #555;
+  min-width: 56px;
+  flex-shrink: 0;
+}
+
+.detail__defense-mult {
+  font-weight: 400;
+  color: #aaa;
+}
+
+.detail__defense-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
 .moves-table-wrap {
   max-height: 380px;
   overflow-y: auto;
