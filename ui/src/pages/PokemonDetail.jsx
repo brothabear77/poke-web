@@ -4,6 +4,7 @@ import TypeBadge from "../components/TypeBadge";
 import StatBar from "../components/StatBar";
 import EvolutionChain from "../components/EvolutionChain";
 import FitScale from "../components/FitScale";
+import { assetUrl } from "../utils/assetUrl";
 import "./PokemonDetail.css";
 
 const STAT_ORDER = ["hp", "attack", "defense", "special-attack", "special-defense", "speed"];
@@ -16,8 +17,8 @@ export default function PokemonDetail() {
   if (loading) return <div className="detail-loading">Loading...</div>;
   if (error || !poke) return <div className="detail-error">Pokémon not found.</div>;
 
-  const artworkUrl = `/sprites/artwork/${poke.id}.png`;
-  const spriteUrl = `/sprites/pokemon/${poke.id}.png`;
+  const artworkUrl = assetUrl(`/sprites/artwork/${poke.id}.png`);
+  const spriteUrl = assetUrl(`/sprites/pokemon/${poke.id}.png`);
   const totalStats = STAT_ORDER.reduce((s, k) => s + (poke.stats?.[k] ?? 0), 0);
 
   const prevId = poke.id > 1 ? poke.id - 1 : null;

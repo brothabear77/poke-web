@@ -1,16 +1,37 @@
 import { Link } from "react-router-dom";
 import { useData } from "../hooks/useData";
 import FitScale from "./FitScale";
+import { assetUrl } from "../utils/assetUrl";
 import "./EvolutionChain.css";
 
 function getTriggerLabel(details) {
   if (!details) return null;
-  if (details.trigger === "level-up" && details.min_level) return `Lv. ${details.min_level}`;
-  if (details.trigger === "use-item" && details.item) return details.item.replace(/-/g, " ");
-  if (details.trigger === "trade") return details.held_item ? `Trade (${details.held_item.replace(/-/g, " ")})` : "Trade";
-  if (details.happiness) return `Happiness${details.time_of_day ? ` (${details.time_of_day})` : ""}`;
-  if (details.trigger) return details.trigger.replace(/-/g, " ");
-  return null;
+  const fmt = (s) => s.replace(/-/g, " ");
+  const parts = [];
+
+  if (details.trigger === "trade") {
+    parts.push(details.held_item ? `Trade (${fmt(details.held_item)})` : "Trade");
+  } else if (details.trigger === "use-item" && details.item) {
+    parts.push(fmt(details.item));
+  } else if (details.happiness) {
+    parts.push("Happiness");
+  } else if (details.trigger === "level-up") {
+    parts.push(details.min_level ? `Lv. ${details.min_level}` : "Level up");
+  } else if (details.trigger) {
+    parts.push(fmt(details.trigger));
+  }
+
+  if (details.held_item && details.trigger !== "trade") parts.push(fmt(details.held_item));
+  if (details.time_of_day)            parts.push(details.time_of_day);
+  if (details.known_move)             parts.push(`Know ${fmt(details.known_move)}`);
+  if (details.location)               parts.push(fmt(details.location));
+  if (details.needs_overworld_rain)   parts.push("Rain");
+  if (details.turn_upside_down)       parts.push("Upside down");
+  if (details.relative_physical_stats === 1)  parts.push("Atk > Def");
+  if (details.relative_physical_stats === -1) parts.push("Def > Atk");
+  if (details.relative_physical_stats === 0)  parts.push("Atk = Def");
+
+  return parts.join(" · ") || null;
 }
 
 function ChainNode({ node, pokemonIndex }) {
@@ -25,7 +46,7 @@ function ChainNode({ node, pokemonIndex }) {
         {id && (
           <Link to={`/pokemon/${id}`}>
             <img
-              src={`/sprites/pokemon/${id}.png`}
+              src={assetUrl(`/sprites/pokemon/${id}.png`)}
               onError={(e) => { e.target.src = poke?.sprite_front || ""; }}
               alt={speciesName}
               className="evo-sprite"
