@@ -5,6 +5,8 @@ import PokemonDetail from "./pages/PokemonDetail";
 import TypeChart from "./pages/TypeChart";
 import MoveBrowser from "./pages/MoveBrowser";
 import TeamBuilder from "./pages/TeamBuilder";
+import ChampionsUsage from "./pages/ChampionsUsage";
+import ChampionsTeamBuilder from "./pages/ChampionsTeamBuilder";
 import logo from "./assets/logo.png";
 import "./App.css";
 
@@ -28,6 +30,35 @@ function NavLinks({ onClick }) {
   ));
 }
 
+function ChampionsDropdown({ onLinkClick }) {
+  const location = useLocation();
+  const isActive = location.pathname.startsWith("/champions");
+  return (
+    <div className="nav-dropdown">
+      <button
+        className={`nav-link nav-dropdown__trigger${isActive ? " active" : ""}`}
+        aria-haspopup="true"
+      >
+        Champions <span className="nav-dropdown__chevron" aria-hidden="true">▾</span>
+      </button>
+      <div className="nav-dropdown__menu" role="menu">
+        <NavLink
+          to="/champions/usage"
+          className={({ isActive }) => `nav-dropdown__item${isActive ? " active" : ""}`}
+          onClick={onLinkClick}
+          role="menuitem"
+        >Usage Data</NavLink>
+        <NavLink
+          to="/champions/team-builder"
+          className={({ isActive }) => `nav-dropdown__item${isActive ? " active" : ""}`}
+          onClick={onLinkClick}
+          role="menuitem"
+        >Team Builder</NavLink>
+      </div>
+    </div>
+  );
+}
+
 // Closes the drawer whenever the route changes (e.g. after tapping a link).
 function RouteWatcher({ onRouteChange }) {
   const location = useLocation();
@@ -49,6 +80,7 @@ export default function App() {
           {/* Desktop nav */}
           <nav className="app-nav app-nav--desktop">
             <NavLinks />
+            <ChampionsDropdown onLinkClick={close} />
           </nav>
 
           {/* Hamburger — mobile only */}
@@ -71,6 +103,19 @@ export default function App() {
           </div>
           <div className="app-drawer-links">
             <NavLinks onClick={close} />
+            <div className="app-drawer-section">
+              <span className="app-drawer-section__label">Champions</span>
+              <NavLink
+                to="/champions/usage"
+                className={({ isActive }) => `nav-link nav-link--indent${isActive ? " active" : ""}`}
+                onClick={close}
+              >Usage Data</NavLink>
+              <NavLink
+                to="/champions/team-builder"
+                className={({ isActive }) => `nav-link nav-link--indent${isActive ? " active" : ""}`}
+                onClick={close}
+              >Team Builder</NavLink>
+            </div>
           </div>
         </nav>
 
@@ -82,6 +127,9 @@ export default function App() {
             <Route path="/types" element={<TypeChart />} />
             <Route path="/moves" element={<MoveBrowser />} />
             <Route path="/team-builder" element={<TeamBuilder />} />
+            <Route path="/champions" element={<Navigate to="/champions/usage" replace />} />
+            <Route path="/champions/usage" element={<ChampionsUsage />} />
+            <Route path="/champions/team-builder" element={<ChampionsTeamBuilder />} />
           </Routes>
         </main>
       </div>
