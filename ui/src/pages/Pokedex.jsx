@@ -22,7 +22,11 @@ export default function Pokedex() {
     let list = allPokemon;
     if (search.trim()) {
       const q = search.trim().toLowerCase();
-      list = list.filter((p) => p.name.includes(q) || String(p.id).includes(q));
+      list = list.filter((p) =>
+        p.name.includes(q) ||
+        (p.display_name && p.display_name.toLowerCase().includes(q)) ||
+        String(p.id).includes(q)
+      );
     }
     if (typeFilter) {
       list = list.filter((p) => p.types.includes(typeFilter));

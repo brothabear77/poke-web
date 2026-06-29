@@ -124,7 +124,11 @@ export default function TeamBuilder() {
     let list = suggestionPool;
     if (search.trim()) {
       const q = search.trim().toLowerCase();
-      list = list.filter((p) => p.name.includes(q) || String(p.id).includes(q));
+      list = list.filter((p) =>
+        p.name.includes(q) ||
+        (p.display_name && p.display_name.toLowerCase().includes(q)) ||
+        String(p.id).includes(q)
+      );
     }
     return list;
   }, [suggestionPool, search]);
