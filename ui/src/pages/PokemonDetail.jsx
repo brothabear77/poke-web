@@ -40,9 +40,19 @@ export default function PokemonDetail() {
   const spriteUrl = assetUrl(`/sprites/pokemon/${poke.id}.png`);
   const totalStats = STAT_ORDER.reduce((s, k) => s + (poke.stats?.[k] ?? 0), 0);
 
-  const prevId = poke.id > 1 ? poke.id - 1 : null;
-  const nextEntry = pokemonIndex?.find((p) => p.id === poke.id + 1);
-  const nextId = nextEntry ? nextEntry.id : null;
+  // For alternate forms (id > 1025), resolve the National Dex number via species.
+  // Fall back to a prefix match because some species names in the index have a
+  // form suffix (e.g. "lycanroc" species → "lycanroc-midday" entry, id 745).
+  const dexNum = poke.id <= 1025
+    ? poke.id
+    : (pokemonIndex?.find((p) => p.name === poke.species && p.id <= 1025)
+    ?? pokemonIndex?.find((p) => p.name.startsWith(poke.species + "-") && p.id <= 1025))?.id
+    ?? poke.id;
+
+  const currentIdx = pokemonIndex?.findIndex((p) => p.id === poke.id) ?? -1;
+  const prevId = currentIdx > 0 ? pokemonIndex[currentIdx - 1].id : null;
+  const nextId = currentIdx >= 0 && currentIdx < (pokemonIndex?.length ?? 0) - 1
+    ? pokemonIndex[currentIdx + 1].id : null;
 
   return (
     <div className="detail">
@@ -65,7 +75,7 @@ export default function PokemonDetail() {
         </div>
         <div className="detail__headline">
           <div className="detail__num">#{String(poke.id).padStart(4, "0")}</div>
-          <h1 className="detail__name">{poke.name.replace(/-/g, " ")}</h1>
+          <h1 className="detail__name">{(poke.display_name || poke.name).replace(/-/g, " ")}</h1>
           {poke.genera && <div className="detail__genus">{poke.genera}</div>}
           <div className="detail__types">
             {poke.types.map((t) => <TypeBadge key={t} type={t} />)}
@@ -74,6 +84,10 @@ export default function PokemonDetail() {
             <p className="detail__flavor">{poke.flavor_text}</p>
           )}
           <div className="detail__meta-row">
+            <div className="detail__meta-item">
+              <span className="detail__meta-label">Pokédex No.</span>
+              <span className="detail__meta-val">#{String(dexNum).padStart(4, "0")}</span>
+            </div>
             <div className="detail__meta-item">
               <span className="detail__meta-label">Height</span>
               <span className="detail__meta-val">{((poke.height ?? 0) / 10).toFixed(1)} m</span>

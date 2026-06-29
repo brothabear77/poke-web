@@ -238,9 +238,127 @@ for entry in poke_index["results"]:
         "bst": sum(stats.values()),
     })
 
+print(f"  {len(pokemon_out)} base pokemon processed")
+
+# ---------------------------------------------------------------------------
+# 3b. Alternate forms (regional variants, formes, etc.)
+# ---------------------------------------------------------------------------
+print("Processing alternate forms...")
+
+form_dir = SRC / "pokemon-form"
+poke_data_dir = SRC / "pokemon"
+forms_added = 0
+
+for poke_file in sorted(poke_data_dir.iterdir()):
+    if poke_file.name == "_index.json" or not poke_file.name.endswith(".json"):
+        continue
+    try:
+        p = json.loads(poke_file.read_text())
+    except Exception:
+        continue
+
+    poke_id = p.get("id", 0)
+    if poke_id <= 1025 or p.get("is_default", True):
+        continue
+
+    name = p["name"]
+
+    # Check form file for exclusion flags
+    form_file = form_dir / f"{name}.json"
+    if not form_file.exists():
+        continue
+    try:
+        form_data = json.loads(form_file.read_text())
+    except Exception:
+        continue
+
+    if form_data.get("is_mega") or form_data.get("is_battle_only"):
+        continue
+    if "totem" in name:
+        continue
+    if name.startswith("pikachu-") and "cap" in name:
+        continue
+
+    # Get species info from species_map
+    sp_name = (p.get("species") or {}).get("name", "")
+    sp = species_map.get(sp_name, {})
+
+    # English display name from form file
+    en_display = en_name(form_data.get("names", []), name)
+
+    # Stats
+    stats = {s["stat"]["name"]: s["base_stat"] for s in p.get("stats", [])}
+
+    # Types
+    types = [t["type"]["name"] for t in sorted(p.get("types", []), key=lambda x: x["slot"])]
+
+    # Abilities
+    abilities = [
+        {
+            "name": a["ability"]["name"],
+            "is_hidden": a["is_hidden"],
+            "slot": a["slot"],
+            "description": ability_desc.get(a["ability"]["name"]),
+        }
+        for a in sorted(p.get("abilities", []), key=lambda x: x["slot"])
+    ]
+
+    # Level-up moves
+    move_min_level = {}
+    for mv in p.get("moves", []):
+        for vgd in mv.get("version_group_details", []):
+            if vgd["move_learn_method"]["name"] == "level-up":
+                mv_name = mv["move"]["name"]
+                level = vgd["level_learned_at"]
+                if mv_name not in move_min_level or level < move_min_level[mv_name]:
+                    move_min_level[mv_name] = level
+    level_moves = sorted(
+        [{"name": n, "level": l} for n, l in move_min_level.items()],
+        key=lambda x: (x["level"], x["name"])
+    )
+
+    # Sprites
+    sprites = p.get("sprites", {})
+    sprite_front = sprites.get("front_default")
+    sprite_artwork = (sprites.get("other", {}) or {}).get("official-artwork", {}).get("front_default")
+
+    detail = {
+        "id": poke_id,
+        "name": name,
+        "display_name": en_display,
+        "species": sp_name,
+        "types": types,
+        "stats": stats,
+        "abilities": abilities,
+        "height": p.get("height"),
+        "weight": p.get("weight"),
+        "base_experience": p.get("base_experience"),
+        "level_up_moves": level_moves,
+        "sprite_front": sprite_front,
+        "sprite_artwork": sprite_artwork,
+        **sp,
+    }
+
+    (DST / "pokemon" / f"{poke_id}.json").write_text(json.dumps(detail))
+
+    pokemon_out.append({
+        "id": poke_id,
+        "name": name,
+        "display_name": en_display,
+        "types": types,
+        "generation_id": sp.get("generation_id"),
+        "is_legendary": sp.get("is_legendary", False),
+        "is_mythical": sp.get("is_mythical", False),
+        "evolution_chain_id": sp.get("evolution_chain_id"),
+        "color": sp.get("color"),
+        "stats": stats,
+        "bst": sum(stats.values()),
+    })
+    forms_added += 1
+
 pokemon_out.sort(key=lambda x: x["id"])
 (DST / "pokemon-index.json").write_text(json.dumps(pokemon_out))
-print(f"  {len(pokemon_out)} pokemon indexed, detail files written")
+print(f"  {forms_added} alternate forms added, {len(pokemon_out)} total pokemon indexed")
 
 # ---------------------------------------------------------------------------
 # 4. Evolution chains
@@ -262,6 +380,12 @@ def flatten_chain(chain_node):
                 "time_of_day": d.get("time_of_day") or None,
                 "held_item": (d.get("held_item") or {}).get("name") if d.get("held_item") else None,
                 "known_move": (d.get("known_move") or {}).get("name") if d.get("known_move") else None,
+                "known_move_type": (d.get("known_move_type") or {}).get("name") if d.get("known_move_type") else None,
+                "location": (d.get("location") or {}).get("name") if d.get("location") else None,
+                "min_affection": d.get("min_affection"),
+                "relative_physical_stats": d.get("relative_physical_stats"),
+                "needs_overworld_rain": d.get("needs_overworld_rain") or None,
+                "turn_upside_down": d.get("turn_upside_down") or None,
             }
             for d in chain_node.get("evolution_details", [])
         ],

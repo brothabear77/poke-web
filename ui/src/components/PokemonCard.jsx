@@ -20,7 +20,7 @@ export default function PokemonCard({ pokemon, onSelect, selected, disabled, sho
         alt={name}
         loading="lazy"
       />
-      <div className="pokemon-card__name">{name.replace(/-/g, " ")}</div>
+      <div className="pokemon-card__name">{(pokemon.display_name || name).replace(/-/g, " ")}</div>
       <div className="pokemon-card__types">
         {types.map((t) => <TypeBadge key={t} type={t} small />)}
       </div>
