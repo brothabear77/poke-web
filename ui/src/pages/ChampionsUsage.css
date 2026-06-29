@@ -37,9 +37,13 @@
   margin: 0 0 10px;
 }
 
+.cu__search-wrap {
+  position: relative;
+}
+
 .cu__search {
   width: 100%;
-  padding: 7px 11px;
+  padding: 7px 32px 7px 11px;
   border: 1px solid #ddd;
   border-radius: 8px;
   font-size: 0.88rem;

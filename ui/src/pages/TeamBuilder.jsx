@@ -347,12 +347,17 @@ export default function TeamBuilder() {
       {/* --- Pool --- */}
       <div className="tb__pool">
         <div className="tb__filters">
-          <input
-            className="filter-input"
-            placeholder="Search name or #..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); resetPage(); }}
-          />
+          <div className="search-wrap">
+            <input
+              className="filter-input"
+              placeholder="Search name or #..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); resetPage(); }}
+            />
+            {search && (
+              <button className="search-clear" onClick={() => { setSearch(""); resetPage(); }} aria-label="Clear search">✕</button>
+            )}
+          </div>
           <div className="gen-filter" ref={typeRef}>
             <button
               type="button"

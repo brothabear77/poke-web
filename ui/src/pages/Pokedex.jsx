@@ -52,12 +52,17 @@ export default function Pokedex() {
   return (
     <div className="pokedex">
       <div className="pokedex__filters">
-        <input
-          className="filter-input"
-          placeholder="Search name or #..."
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); resetPage(); }}
-        />
+        <div className="search-wrap">
+          <input
+            className="filter-input"
+            placeholder="Search name or #..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); resetPage(); }}
+          />
+          {search && (
+            <button className="search-clear" onClick={() => { setSearch(""); resetPage(); }} aria-label="Clear search">✕</button>
+          )}
+        </div>
         <select
           className="filter-select"
           value={typeFilter}

@@ -152,12 +152,17 @@ export default function ChampionsUsage() {
       <div className={`cu__list${mobileView === "detail" ? " cu__list--hidden" : ""}`}>
         <div className="cu__list-header">
           <h1 className="cu__title">Champions Usage</h1>
-          <input
-            className="cu__search"
-            placeholder="Search Pokémon…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <div className="cu__search-wrap">
+            <input
+              className="cu__search"
+              placeholder="Search Pokémon…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            {search && (
+              <button className="search-clear" onClick={() => setSearch("")} aria-label="Clear search">✕</button>
+            )}
+          </div>
           <div className="cu__count">{filtered.length} Pokémon</div>
         </div>
         <div className="cu__pokemon-list">

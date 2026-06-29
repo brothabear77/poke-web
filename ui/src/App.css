@@ -231,3 +231,22 @@
 }
 
 .nav-link--indent { padding-left: 24px; }
+
+/* --- Shared search-with-clear-button pattern --- */
+.search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #bbb;
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+.search-clear:hover { color: #555; }
