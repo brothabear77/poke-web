@@ -131,6 +131,11 @@ export default function ChampionsUsage() {
       });
   }, [allPokemon, rankById]);
 
+  const selectedPokemon = useMemo(
+    () => championsPokemon.find((p) => p.id === selectedId) ?? null,
+    [championsPokemon, selectedId]
+  );
+
   const filtered = useMemo(() => {
     if (!search.trim()) return championsPokemon;
     const q = search.trim().toLowerCase();
@@ -196,6 +201,34 @@ export default function ChampionsUsage() {
             <button className="cu__back" onClick={() => setMobileView("list")}>
               ← Back
             </button>
+            {selectedPokemon && (() => {
+              const ranks = rankById.get(selectedId);
+              return (
+                <div className="cu__detail-hero">
+                  <img
+                    className="cu__detail-sprite"
+                    src={assetUrl(`/sprites/pokemon/${selectedId}.png`)}
+                    alt={selectedPokemon.name}
+                  />
+                  <div className="cu__detail-meta">
+                    <h2 className="cu__detail-name">
+                      {selectedPokemon.name.replace(/-/g, " ")}
+                    </h2>
+                    <div className="cu__detail-types">
+                      {selectedPokemon.types.map((t) => <TypeBadge key={t} type={t} />)}
+                    </div>
+                    <div className="cu__detail-ranks">
+                      {ranks?.doubles_rank != null && (
+                        <span className="cu__rank-badge">Doubles #{ranks.doubles_rank}</span>
+                      )}
+                      {ranks?.singles_rank != null && (
+                        <span className="cu__rank-badge">Singles #{ranks.singles_rank}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
             <div className="cu__format-toggle">
               <button
                 className={`cu__fmt-btn${format === "Doubles" ? " active" : ""}`}

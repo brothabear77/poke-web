@@ -130,6 +130,60 @@
   display: none;
 }
 
+/* ── Detail hero header ───────────────────────────────────── */
+.cu__detail-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.cu__detail-sprite {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+}
+
+.cu__detail-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cu__detail-name {
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin: 0;
+  text-transform: capitalize;
+}
+
+.cu__detail-types {
+  display: flex;
+  gap: 4px;
+}
+
+.cu__detail-ranks {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cu__rank-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: #f0f4ff;
+  color: #5a8ef8;
+  border: 1px solid #d0dcff;
+  border-radius: 20px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+
 /* ── Format toggle ────────────────────────────────────────── */
 .cu__format-toggle {
   display: flex;
