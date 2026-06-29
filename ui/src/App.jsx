@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { HashRouter, Routes, Route, NavLink, Navigate, useLocation } from "react-router-dom";
+import { HashRouter, Routes, Route, NavLink, Navigate, Link, useLocation } from "react-router-dom";
 import Pokedex from "./pages/Pokedex";
 import PokemonDetail from "./pages/PokemonDetail";
 import TypeChart from "./pages/TypeChart";
@@ -7,6 +7,7 @@ import MoveBrowser from "./pages/MoveBrowser";
 import TeamBuilder from "./pages/TeamBuilder";
 import ChampionsUsage from "./pages/ChampionsUsage";
 import ChampionsTeamBuilder from "./pages/ChampionsTeamBuilder";
+import NotFound from "./pages/NotFound";
 import logo from "./assets/logo.png";
 import "./App.css";
 
@@ -75,7 +76,7 @@ export default function App() {
       <RouteWatcher onRouteChange={close} />
       <div className="app">
         <header className="app-header">
-          <img src={logo} alt="PokéLocal" className="app-logo" />
+          <Link to="/pokedex"><img src={logo} alt="PokéLocal" className="app-logo" /></Link>
 
           {/* Desktop nav */}
           <nav className="app-nav app-nav--desktop">
@@ -98,7 +99,7 @@ export default function App() {
         {drawerOpen && <div className="app-drawer-backdrop" onClick={close} />}
         <nav className={`app-drawer${drawerOpen ? " app-drawer--open" : ""}`} aria-hidden={!drawerOpen}>
           <div className="app-drawer-header">
-            <img src={logo} alt="PokéLocal" className="app-logo" />
+            <Link to="/pokedex" onClick={close}><img src={logo} alt="PokéLocal" className="app-logo" /></Link>
             <button className="app-drawer-close" onClick={close} aria-label="Close navigation">✕</button>
           </div>
           <div className="app-drawer-links">
@@ -130,6 +131,7 @@ export default function App() {
             <Route path="/champions" element={<Navigate to="/champions/usage" replace />} />
             <Route path="/champions/usage" element={<ChampionsUsage />} />
             <Route path="/champions/team-builder" element={<ChampionsTeamBuilder />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
       </div>
