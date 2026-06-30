@@ -18,6 +18,7 @@ export const LLM_DEFAULTS = {
 const DEFAULT_PROVIDER = "groq";
 
 import { PROXY_URL } from "../config.js";
+import { logger } from "./logger.js";
 
 export const ENV_GROQ_KEY = import.meta.env.GROQ_KEY || "";
 export const ENV_PROXY_URL = PROXY_URL;
@@ -71,13 +72,32 @@ export async function callLLM({ provider, apiKey, model, system, messages, proxy
   // Shared proxy: no API key in the browser; the server holds the real key.
   if (provider === "proxy") {
     if (!proxyUrl) throw new Error("No proxy URL configured.");
-    const res = await fetch(proxyUrl, {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-app-password": password || "" },
-      body: JSON.stringify({ model, messages: [{ role: "system", content: system }, ...messages] }),
-    });
-    if (!res.ok) throw new Error(await readError(res));
+    const body = { model, messages: [{ role: "system", content: system }, ...messages] };
+    logger.group("callLLM → proxy");
+    logger.info("URL:", proxyUrl);
+    logger.info("Model:", model);
+    logger.info("Messages:", body.messages.length, "(system + history)");
+    logger.info("Password set:", !!password);
+    logger.groupEnd();
+    let res;
+    try {
+      res = await fetch(proxyUrl, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-app-password": password || "" },
+        body: JSON.stringify(body),
+      });
+    } catch (fetchErr) {
+      logger.error("Fetch failed (likely CORS or network):", fetchErr.message);
+      throw fetchErr;
+    }
+    logger.info("Response status:", res.status, res.statusText);
+    if (!res.ok) {
+      const msg = await readError(res);
+      logger.error("Error response:", msg);
+      throw new Error(msg);
+    }
     const data = await res.json();
+    logger.info("Reply received, length:", data.choices?.[0]?.message?.content?.length ?? 0);
     return data.choices?.[0]?.message?.content || "";
   }
 
