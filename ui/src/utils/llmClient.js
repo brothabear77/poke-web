@@ -17,12 +17,10 @@ export const LLM_DEFAULTS = {
 
 const DEFAULT_PROVIDER = "groq";
 
-// Optional Groq key from ui/.env (exposed via vite envPrefix "GROQ_"). Used to
-// autofill the key field when the user hasn't entered one of their own.
-export const ENV_GROQ_KEY = import.meta.env.GROQ_KEY || "";
+import { PROXY_URL } from "../config.js";
 
-// Proxy URL (not a secret) baked in at build time so friends only enter the password.
-export const ENV_PROXY_URL = import.meta.env.VITE_PROXY_URL || "";
+export const ENV_GROQ_KEY = import.meta.env.GROQ_KEY || "";
+export const ENV_PROXY_URL = PROXY_URL;
 
 export function loadLlmSettings() {
   try {
