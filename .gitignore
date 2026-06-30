@@ -1,8 +1,3 @@
 __pycache__/
 *.pyc
 .DS_Store
-
-# Local env files — may contain API keys; never commit
-.env
-.env.*
-!.env.example
