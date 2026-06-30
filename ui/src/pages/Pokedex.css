@@ -24,8 +24,19 @@
 }
 
 .filter-input {
+  min-width: 0;
+  padding-right: 32px;
+}
+
+.search-wrap {
+  position: relative;
   flex: 1;
   min-width: 160px;
+  display: flex;
+}
+
+.search-wrap .filter-input {
+  flex: 1;
 }
 
 .filter-input:focus,

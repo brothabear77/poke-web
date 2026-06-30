@@ -210,16 +210,22 @@ def main():
             fully_failed.append(slug)
             continue
 
+        bs = p.get("summary", {}).get("battleSummary", {}).get("Current", {})
+        doubles_rank = bs.get("Doubles", {}).get("position")
+        singles_rank = bs.get("Singles", {}).get("position")
+
         out.update({
             "id": pid,
             "name": id_to_name.get(pid),
             "champions_name": p.get("battleName", p.get("name")),
             "champions_slug": slug,
             "data_version": version,
+            "doubles_rank": doubles_rank,
+            "singles_rank": singles_rank,
             "formats": formats,
         })
         dst_file.write_text(json.dumps(out, ensure_ascii=False))
-        written.append(pid)
+        written.append((pid, p.get("battleName", p.get("name")), doubles_rank, singles_rank))
         if i % 25 == 0:
             print(f"  {i}/{len(pokemon)} processed...")
 
@@ -233,11 +239,23 @@ def main():
             f"(> {MAX_FAIL_FRACTION:.0%}). No data published."
         )
 
+    written_ids = [pid for pid, _, _, _ in written]
+
+    # Write _index.json: [{id, name, doubles_rank, singles_rank}] sorted by
+    # doubles_rank. `name` is the Champions display name (e.g. "Basculegion Male"),
+    # used by the team builder to resolve teammate references back to ids.
+    index_entries = sorted(
+        [{"id": pid, "name": cname, "doubles_rank": dr, "singles_rank": sr}
+         for pid, cname, dr, sr in written],
+        key=lambda e: (e["doubles_rank"] is None, e["doubles_rank"]),
+    )
+    (DST / "_index.json").write_text(json.dumps(index_entries, ensure_ascii=False))
+
     meta = {
         "source": "championsbattledata.com",
         "data_version": version,
         "fetched_at": idx.get("generatedAt"),
-        "pokemon_count": len(written),
+        "pokemon_count": len(written_ids),
         "unmapped": unmapped,
         "fully_failed": fully_failed,
         "failed_requests": failed,

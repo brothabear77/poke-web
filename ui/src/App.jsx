@@ -1,10 +1,14 @@
 import { useState, useEffect } from "react";
-import { HashRouter, Routes, Route, NavLink, Navigate, useLocation } from "react-router-dom";
+import { HashRouter, Routes, Route, NavLink, Navigate, Link, useLocation } from "react-router-dom";
 import Pokedex from "./pages/Pokedex";
 import PokemonDetail from "./pages/PokemonDetail";
 import TypeChart from "./pages/TypeChart";
 import MoveBrowser from "./pages/MoveBrowser";
+import ItemBrowser from "./pages/ItemBrowser";
 import TeamBuilder from "./pages/TeamBuilder";
+import ChampionsUsage from "./pages/ChampionsUsage";
+import ChampionsTeamBuilder from "./pages/ChampionsTeamBuilder";
+import NotFound from "./pages/NotFound";
 import logo from "./assets/logo.png";
 import "./App.css";
 
@@ -12,6 +16,7 @@ const NAV_LINKS = [
   { to: "/pokedex",      label: "Pokédex" },
   { to: "/types",        label: "Type Chart" },
   { to: "/moves",        label: "Moves" },
+  { to: "/items",        label: "Items" },
   { to: "/team-builder", label: "Team Builder" },
 ];
 
@@ -26,6 +31,35 @@ function NavLinks({ onClick }) {
       {label}
     </NavLink>
   ));
+}
+
+function ChampionsDropdown({ onLinkClick }) {
+  const location = useLocation();
+  const isActive = location.pathname.startsWith("/champions");
+  return (
+    <div className="nav-dropdown">
+      <button
+        className={`nav-link nav-dropdown__trigger${isActive ? " active" : ""}`}
+        aria-haspopup="true"
+      >
+        Champions <span className="nav-dropdown__chevron" aria-hidden="true">▾</span>
+      </button>
+      <div className="nav-dropdown__menu" role="menu">
+        <NavLink
+          to="/champions/usage"
+          className={({ isActive }) => `nav-dropdown__item${isActive ? " active" : ""}`}
+          onClick={onLinkClick}
+          role="menuitem"
+        >Usage Data</NavLink>
+        <NavLink
+          to="/champions/team-builder"
+          className={({ isActive }) => `nav-dropdown__item${isActive ? " active" : ""}`}
+          onClick={onLinkClick}
+          role="menuitem"
+        >Team Builder</NavLink>
+      </div>
+    </div>
+  );
 }
 
 // Closes the drawer whenever the route changes (e.g. after tapping a link).
@@ -44,11 +78,12 @@ export default function App() {
       <RouteWatcher onRouteChange={close} />
       <div className="app">
         <header className="app-header">
-          <img src={logo} alt="PokéLocal" className="app-logo" />
+          <Link to="/pokedex"><img src={logo} alt="PokéLocal" className="app-logo" /></Link>
 
           {/* Desktop nav */}
           <nav className="app-nav app-nav--desktop">
             <NavLinks />
+            <ChampionsDropdown onLinkClick={close} />
           </nav>
 
           {/* Hamburger — mobile only */}
@@ -66,11 +101,24 @@ export default function App() {
         {drawerOpen && <div className="app-drawer-backdrop" onClick={close} />}
         <nav className={`app-drawer${drawerOpen ? " app-drawer--open" : ""}`} aria-hidden={!drawerOpen}>
           <div className="app-drawer-header">
-            <img src={logo} alt="PokéLocal" className="app-logo" />
+            <Link to="/pokedex" onClick={close}><img src={logo} alt="PokéLocal" className="app-logo" /></Link>
             <button className="app-drawer-close" onClick={close} aria-label="Close navigation">✕</button>
           </div>
           <div className="app-drawer-links">
             <NavLinks onClick={close} />
+            <div className="app-drawer-section">
+              <span className="app-drawer-section__label">Champions</span>
+              <NavLink
+                to="/champions/usage"
+                className={({ isActive }) => `nav-link nav-link--indent${isActive ? " active" : ""}`}
+                onClick={close}
+              >Usage Data</NavLink>
+              <NavLink
+                to="/champions/team-builder"
+                className={({ isActive }) => `nav-link nav-link--indent${isActive ? " active" : ""}`}
+                onClick={close}
+              >Team Builder</NavLink>
+            </div>
           </div>
         </nav>
 
@@ -81,7 +129,12 @@ export default function App() {
             <Route path="/pokemon/:id" element={<PokemonDetail />} />
             <Route path="/types" element={<TypeChart />} />
             <Route path="/moves" element={<MoveBrowser />} />
+            <Route path="/items" element={<ItemBrowser />} />
             <Route path="/team-builder" element={<TeamBuilder />} />
+            <Route path="/champions" element={<Navigate to="/champions/usage" replace />} />
+            <Route path="/champions/usage" element={<ChampionsUsage />} />
+            <Route path="/champions/team-builder" element={<ChampionsTeamBuilder />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
       </div>
