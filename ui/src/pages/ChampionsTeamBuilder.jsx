@@ -467,8 +467,9 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
-  // AI is usable if a key is set (direct providers) or a proxy URL + password are set.
-  const aiReady = llm.provider === "proxy" ? !!llm.proxyUrl && !!llm.password : !!llm.apiKey;
+  // AI is usable if a key is set (direct providers) or a password is set (proxy).
+  // proxyUrl is not checked here — callLLM surfaces a clear error if it's missing.
+  const aiReady = llm.provider === "proxy" ? !!llm.password : !!llm.apiKey;
 
   function ask(key) {
     const q = COACH_QUESTIONS.find((c) => c.key === key);
@@ -567,13 +568,22 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
             />
           </div>
           {llm.provider === "proxy" ? (
-            <input
-              className="ctb-llm__key"
-              type="password"
-              value={llm.password}
-              onChange={(e) => saveSettings({ ...llm, password: e.target.value })}
-              placeholder="Shared password (ask the owner)"
-            />
+            <>
+              <input
+                className="ctb-llm__key"
+                type="url"
+                value={llm.proxyUrl}
+                onChange={(e) => saveSettings({ ...llm, proxyUrl: e.target.value })}
+                placeholder="Proxy URL (https://…lambda-url…on.aws/)"
+              />
+              <input
+                className="ctb-llm__key"
+                type="password"
+                value={llm.password}
+                onChange={(e) => saveSettings({ ...llm, password: e.target.value })}
+                placeholder="Shared password (ask the owner)"
+              />
+            </>
           ) : (
             <input
               className="ctb-llm__key"
