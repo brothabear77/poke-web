@@ -225,7 +225,7 @@ def main():
             "formats": formats,
         })
         dst_file.write_text(json.dumps(out, ensure_ascii=False))
-        written.append((pid, doubles_rank, singles_rank))
+        written.append((pid, p.get("battleName", p.get("name")), doubles_rank, singles_rank))
         if i % 25 == 0:
             print(f"  {i}/{len(pokemon)} processed...")
 
@@ -239,12 +239,14 @@ def main():
             f"(> {MAX_FAIL_FRACTION:.0%}). No data published."
         )
 
-    written_ids = [pid for pid, _, _ in written]
+    written_ids = [pid for pid, _, _, _ in written]
 
-    # Write _index.json: [{id, doubles_rank, singles_rank}] sorted by doubles_rank.
-    # Used by the UI to know which Pokemon have usage data and in what order.
+    # Write _index.json: [{id, name, doubles_rank, singles_rank}] sorted by
+    # doubles_rank. `name` is the Champions display name (e.g. "Basculegion Male"),
+    # used by the team builder to resolve teammate references back to ids.
     index_entries = sorted(
-        [{"id": pid, "doubles_rank": dr, "singles_rank": sr} for pid, dr, sr in written],
+        [{"id": pid, "name": cname, "doubles_rank": dr, "singles_rank": sr}
+         for pid, cname, dr, sr in written],
         key=lambda e: (e["doubles_rank"] is None, e["doubles_rank"]),
     )
     (DST / "_index.json").write_text(json.dumps(index_entries, ensure_ascii=False))

@@ -196,14 +196,28 @@ for sp_entry in species_index["results"]:
 # Load ability data for descriptions
 ability_index = load_index("ability")
 ability_desc = {}
+abilities_out = []
 for ab_entry in ability_index["results"]:
     ab = load("ability", ab_entry["name"])
     if not ab:
         continue
-    ability_desc[ab["name"]] = next(
+    short = next(
         (e["short_effect"] for e in ab.get("effect_entries", []) if e.get("language", {}).get("name") == "en"),
         None
     )
+    ability_desc[ab["name"]] = short
+    abilities_out.append({
+        "name": ab["name"],
+        "display_name": en_name(ab.get("names", []), ab["name"]),
+        "short_effect": short,
+    })
+
+# Write a standalone abilities index (name + English display name + effect text)
+# so the team builder can feed ability mechanics to the LLM without loading every
+# per-Pokemon file. Refreshes automatically when new abilities are scraped.
+abilities_out.sort(key=lambda a: a["display_name"])
+(DST / "abilities-index.json").write_text(json.dumps(abilities_out, ensure_ascii=False))
+print(f"  {len(abilities_out)} abilities indexed")
 
 poke_index = load_index("pokemon")
 pokemon_out = []

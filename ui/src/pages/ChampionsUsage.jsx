@@ -2,15 +2,8 @@ import { useState, useMemo } from "react";
 import { useData } from "../hooks/useData";
 import TypeBadge from "../components/TypeBadge";
 import { assetUrl } from "../utils/assetUrl";
+import { formatEvs } from "../utils/championsStrategy";
 import "./ChampionsUsage.css";
-
-function formatEvs(evs) {
-  const labels = { hp: "HP", attack: "Atk", defense: "Def", sp_atk: "SpA", sp_def: "SpD", speed: "Spe" };
-  return Object.entries(labels)
-    .filter(([k]) => evs[k])
-    .map(([k, l]) => `${evs[k]} ${l}`)
-    .join(" / ") || "No EVs";
-}
 
 function UsageSection({ title, items, showPct = true }) {
   if (!items?.length) return null;

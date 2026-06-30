@@ -74,7 +74,7 @@ export function analyzeTeam(team, chart) {
 
 // --- Candidate scoring ------------------------------------------------------
 
-function scoreCandidate(candidate, analysis, chart, weights = DEFAULT_WEIGHTS) {
+export function scoreCandidate(candidate, analysis, chart, weights = DEFAULT_WEIGHTS) {
   const w = {
     diversity:      (weights.diversity      ?? DEFAULT_WEIGHTS.diversity)      / 100,
     offense:        (weights.offense        ?? DEFAULT_WEIGHTS.offense)        / 100,
