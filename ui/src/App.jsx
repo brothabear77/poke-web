@@ -4,6 +4,7 @@ import Pokedex from "./pages/Pokedex";
 import PokemonDetail from "./pages/PokemonDetail";
 import TypeChart from "./pages/TypeChart";
 import MoveBrowser from "./pages/MoveBrowser";
+import ItemBrowser from "./pages/ItemBrowser";
 import TeamBuilder from "./pages/TeamBuilder";
 import ChampionsUsage from "./pages/ChampionsUsage";
 import ChampionsTeamBuilder from "./pages/ChampionsTeamBuilder";
@@ -15,6 +16,7 @@ const NAV_LINKS = [
   { to: "/pokedex",      label: "Pokédex" },
   { to: "/types",        label: "Type Chart" },
   { to: "/moves",        label: "Moves" },
+  { to: "/items",        label: "Items" },
   { to: "/team-builder", label: "Team Builder" },
 ];
 
@@ -127,6 +129,7 @@ export default function App() {
             <Route path="/pokemon/:id" element={<PokemonDetail />} />
             <Route path="/types" element={<TypeChart />} />
             <Route path="/moves" element={<MoveBrowser />} />
+            <Route path="/items" element={<ItemBrowser />} />
             <Route path="/team-builder" element={<TeamBuilder />} />
             <Route path="/champions" element={<Navigate to="/champions/usage" replace />} />
             <Route path="/champions/usage" element={<ChampionsUsage />} />

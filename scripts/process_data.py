@@ -99,6 +99,54 @@ moves_out.sort(key=lambda x: x["id"])
 print(f"  {len(moves_out)} moves written")
 
 # ---------------------------------------------------------------------------
+# 2b. Items index
+# ---------------------------------------------------------------------------
+print("Processing items...")
+EXCLUDE_ITEM_CATS = {
+    "all-machines", "dynamax-crystals", "tm-materials", "unused",
+    "plot-advancement", "gameplay", "picnic", "species-candies",
+    "sandwich-ingredients", "data-cards", "curry-ingredients",
+    "miracle-shooter", "event-items", "all-mail", "dex-completion",
+    "catching-bonus", "baking", "baking-only", "effort-drop",
+}
+item_index = load_index("item")
+items_out = []
+for entry in item_index["results"]:
+    name = entry["name"]
+    it = load("item", name)
+    if not it:
+        continue
+    cat = it.get("category", {}).get("name", "")
+    if cat in EXCLUDE_ITEM_CATS:
+        continue
+    item_display = en_name(it.get("names", []), name)
+    item_effect = next(
+        (e["short_effect"] for e in it.get("effect_entries", []) if e.get("language", {}).get("name") == "en"),
+        None,
+    )
+    item_flavor = next(
+        (e["text"] for e in reversed(it.get("flavor_text_entries", [])) if e.get("language", {}).get("name") == "en"),
+        None,
+    )
+    desc = item_effect or item_flavor
+    if not desc:
+        continue
+    sprite = (it.get("sprites") or {}).get("default")
+    items_out.append({
+        "id": it["id"],
+        "name": name,
+        "display_name": item_display,
+        "category": cat,
+        "cost": it.get("cost", 0),
+        "short_effect": item_effect,
+        "flavor_text": item_flavor,
+        "sprite": sprite,
+    })
+items_out.sort(key=lambda x: x["id"])
+(DST / "items-index.json").write_text(json.dumps(items_out))
+print(f"  {len(items_out)} items written")
+
+# ---------------------------------------------------------------------------
 # 3. Pokemon index + individual detail files
 # ---------------------------------------------------------------------------
 print("Processing pokemon...")
