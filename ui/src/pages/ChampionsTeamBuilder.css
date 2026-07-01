@@ -99,31 +99,79 @@
   font-size: 0.8rem;
   font-weight: 600;
 }
-.ctb-slot--filled {
-  border: 1px solid #e0e0e0;
-  background: #fafbfc;
-  cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s;
+@keyframes ctb-slot-in {
+  from { opacity: 0; transform: translateY(-14px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-.ctb-slot--filled:hover { border-color: #5a8ef8; }
-.ctb-slot--active { border-color: #5a8ef8; box-shadow: 0 0 0 2px rgba(90,142,248,0.25); }
-.ctb-slot__remove {
+@keyframes ctb-slot-out {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-14px); }
+}
+.ctb-slot--filled {
+  border: 1px solid #cdd4de;
+  background: #fff;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+  transition: outline-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  animation: ctb-slot-in 0.28s ease-out;
+}
+/* Whole filled card is a click-to-remove target */
+.ctb-slot--removable:hover {
+  outline-color: #CE0022;
+  box-shadow: 0 4px 14px rgba(206, 0, 34, 0.18);
+  transform: translateY(-2px);
+}
+.ctb-slot--active { outline-color: #5a8ef8; box-shadow: 0 0 0 2px rgba(90,142,248,0.25); }
+.ctb-slot--leaving {
+  animation: ctb-slot-out 0.26s ease-in forwards;
+  pointer-events: none;
+}
+.ctb-slot__info {
   position: absolute;
-  top: 4px; right: 4px;
-  width: 18px; height: 18px;
+  top: 5px; right: 5px;
+  width: 19px; height: 19px;
   border: none;
   border-radius: 50%;
-  background: rgba(0,0,0,0.12);
-  color: #fff;
-  font-size: 0.6rem;
+  background: rgba(90,142,248,0.15);
+  color: #5a8ef8;
+  font-size: 0.72rem;
+  font-weight: 800;
+  font-style: italic;
+  font-family: Georgia, "Times New Roman", serif;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, color 0.15s;
 }
-.ctb-slot__remove:hover { background: #CE0022; }
+.ctb-slot__info:hover { background: #5a8ef8; color: #fff; }
 .ctb-slot__sprite { width: 56px; height: 56px; object-fit: contain; image-rendering: pixelated; }
 .ctb-slot__name { font-size: 0.8rem; font-weight: 700; text-transform: capitalize; line-height: 1.1; }
 .ctb-slot__role { font-size: 0.66rem; font-weight: 700; color: #5a8ef8; text-transform: uppercase; letter-spacing: 0.03em; }
 .ctb-slot__types { display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; }
+
+/* Base stats across the bottom of the build editor */
+.ctb-editor__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #eee;
+}
+.ctb-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 42px;
+  padding: 4px 8px;
+  background: #f4f6fa;
+  border-radius: 6px;
+}
+.ctb-stat__label { font-size: 0.6rem; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.03em; }
+.ctb-stat__val { font-size: 0.9rem; font-weight: 700; color: #333; }
+.ctb-stat--total { background: #eef2fb; }
+.ctb-stat--total .ctb-stat__val { color: #5a8ef8; }
 
 /* Build editor */
 .ctb-editor {
@@ -237,15 +285,32 @@
   align-items: center;
   gap: 3px;
   padding: 10px 6px;
-  border: 1px solid #e8e8e8;
+  border: 1px solid #cdd4de;
   border-radius: 10px;
   background: #fff;
   cursor: pointer;
   font-family: inherit;
   text-align: center;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+  transition: outline-color 0.15s, box-shadow 0.15s, transform 0.15s;
 }
-.ctb-rec:hover { border-color: #5a8ef8; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+/* Suggested cards are click-to-ADD, so hover uses a green accent (vs. the team
+   slots' red remove accent). */
+.ctb-rec:hover {
+  outline-color: #2e9e5b;
+  box-shadow: 0 4px 14px rgba(46, 158, 91, 0.18);
+  transform: translateY(-2px);
+}
+/* Non-addable cards (already on the team, or team full): no hover lift */
+.ctb-rec:disabled { cursor: default; }
+.ctb-rec:disabled:hover {
+  outline-color: transparent;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transform: none;
+}
+.ctb-rec--on-team { opacity: 0.5; }
 .ctb-rec__sprite { width: 52px; height: 52px; object-fit: contain; image-rendering: pixelated; }
 .ctb-rec__name { font-size: 0.78rem; font-weight: 700; text-transform: capitalize; line-height: 1.1; }
 .ctb-rec__types { display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; }
@@ -274,6 +339,27 @@
 
 /* Coach */
 .ctb-coach__actions { display: flex; gap: 8px; align-items: center; }
+.ctb-coach__head { margin-top: 16px; padding-top: 14px; border-top: 1px solid #eee; }
+.ctb-coach__status { display: flex; align-items: center; gap: 10px; font-size: 0.78rem; }
+.ctb-linkbtn {
+  background: none; border: none; padding: 0; cursor: pointer;
+  color: #5a8ef8; font-size: 0.78rem; text-decoration: underline;
+}
+.ctb-linkbtn:hover { color: #CE0022; }
+
+/* AI analysis (auto-generated) */
+.ctb-ai {
+  margin-bottom: 14px; padding: 12px 14px;
+  background: linear-gradient(180deg, #faf8ff, #f4f0ff);
+  border: 1px solid #e6ddff; border-radius: 8px;
+}
+.ctb-ai__body {
+  font-size: 0.84rem; line-height: 1.55; color: #2c2c34;
+  white-space: pre-wrap; margin-top: 6px;
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
 .ctb-report__summary { font-size: 0.9rem; font-weight: 600; margin: 0 0 12px; }
 .ctb-report__cols {
   display: grid;

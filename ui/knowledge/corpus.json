@@ -1,0 +1,122 @@
+[
+  {
+    "id": "tailwind-speed-control",
+    "title": "Tailwind as speed control",
+    "tags": ["tailwind", "speed-control", "flying", "offense", "tempo"],
+    "text": "Tailwind doubles the Speed of every Pokemon on your side for three turns (four with a Persim/its extending effects aside, standard is three). It flips the speed order so your attackers move first during the turns that matter most, and it works well on hyper-offensive teams that want to snowball before the boost expires. A common plan is to lead a fast, bulky Tailwind setter (often a Flying-type), get the turn of Tailwind up, then pivot or sacrifice it once its job is done. Because it only lasts a few turns, Tailwind teams are built to end games quickly rather than grind."
+  },
+  {
+    "id": "trick-room-basics",
+    "title": "Trick Room and slow attackers",
+    "tags": ["trick-room", "speed-control", "psychic", "slow", "offense"],
+    "text": "Trick Room reverses the turn order for five turns, so the slowest Pokemon moves first. It is the archetype for deliberately slow, bulky, hard-hitting Pokemon that would otherwise be outsped. Good Trick Room teams pair a setter with heavy attackers that have very low Speed (often with a minus-Speed nature and zero Speed EVs to be as slow as possible). The setter is usually bulky enough to survive a turn and set the room even when targeted. The clock is the constraint: you have five turns to convert the speed advantage before normal order resumes."
+  },
+  {
+    "id": "tailwind-vs-trickroom-conflict",
+    "title": "Tailwind and Trick Room conflict",
+    "tags": ["tailwind", "trick-room", "speed-control", "teambuilding-conflict"],
+    "text": "Tailwind and Trick Room are opposite speed-control modes and generally should not share a team. Tailwind wants your Pokemon fast; Trick Room wants them slow. If both are active, the two effects fight and your Pokemon's effective order becomes unpredictable and usually counterproductive. Committing to one axis lets you build EV spreads, natures, and a game plan around it. The exception is a purposeful 'Trick Room breaker' package, but mixing the two by accident is a common teambuilding mistake."
+  },
+  {
+    "id": "intimidate-pressure",
+    "title": "Intimidate and physical matchups",
+    "tags": ["intimidate", "ability", "defense", "physical", "pivot"],
+    "text": "Intimidate lowers the Attack of both opposing Pokemon by one stage when the holder switches in or is sent out. In doubles it is one of the strongest defensive tools because it weakens the whole enemy side's physical damage immediately. Stacking multiple Intimidate users, or bringing one back in repeatedly via pivoting, can neuter physical offense entirely. Physical attackers counter it with setup (Swords Dance, Dragon Dance), items like a stat-restoring or Attack-boosting item, or abilities/moves that ignore or punish the drop. Special attackers ignore Intimidate outright, so Intimidate-heavy teams can be soft to special offense."
+  },
+  {
+    "id": "fake-out-tempo",
+    "title": "Fake Out for tempo and disruption",
+    "tags": ["fake-out", "priority", "flinch", "tempo", "support"],
+    "text": "Fake Out is a priority move that deals small damage and always flinches the target on the first turn its user is on the field. It buys a free turn: you can remove one opposing action while your partner sets up, sets speed control, or KOs the other threat. It is a staple lead tool. Its limits are that it only works the turn the user enters (so re-entering via a pivot refreshes it), it fails into Pokemon immune to flinch or protected by Protect, and priority order matters when multiple Fake Out users are present."
+  },
+  {
+    "id": "redirection-followme",
+    "title": "Redirection with Follow Me and Rage Powder",
+    "tags": ["follow-me", "rage-powder", "redirection", "support", "protect"],
+    "text": "Redirection moves (Follow Me, Rage Powder) draw all single-target attacks from the opponent onto the user for the turn, protecting a fragile partner while it sets up or fires off a big move. They have increased priority so they resolve before most attacks. Counters: Rage Powder does not affect Grass-types or Pokemon with an ability that ignores powder; both are beaten by spread moves that hit multiple targets, by moving the threat with a switch, or by pressuring the redirector directly. Redirection is a backbone of setup and restricted-attacker teams."
+  },
+  {
+    "id": "rain-archetype",
+    "title": "Rain teams",
+    "tags": ["rain", "weather", "water", "drizzle", "swift-swim", "offense"],
+    "text": "Rain teams set rain (usually via Drizzle) to power up Water moves by 50 percent, weaken Fire moves, and enable Swift Swim sweepers that double their Speed in rain. The core is a rain setter plus one or two abusers that convert the boosted Water damage and speed into fast KOs. Rain also guarantees Thunder and Hurricane accuracy. It is countered by opposing weather that overrides yours, by bulky Water resists, and by the rain simply running out after five turns, so rain teams want to close quickly."
+  },
+  {
+    "id": "sun-archetype",
+    "title": "Sun teams",
+    "tags": ["sun", "weather", "fire", "grass", "drought", "chlorophyll", "offense"],
+    "text": "Sun teams set harsh sunlight (usually via Drought) to boost Fire moves by 50 percent, weaken Water moves, and turn on Chlorophyll doubling the Speed of its holders. Sun also lets certain Grass attackers fire instant Solar Beam. The game plan mirrors rain: setter plus fast Fire/Grass abusers that snowball before the weather ends. Sun is weak to opposing weather, to bulky Fire resists and Water attackers, and it makes your own Water-weak members riskier to keep in."
+  },
+  {
+    "id": "sand-snow-weather",
+    "title": "Sand and Snow weather",
+    "tags": ["sand", "snow", "weather", "rock", "ice", "defense"],
+    "text": "Sandstorm chips non-Rock/Ground/Steel Pokemon each turn and boosts Rock-type Special Defense by 50 percent, favoring bulky Rock/Ground cores. Snow boosts the Defense of Ice-types by 50 percent and enables Slush Rush speed and Ice Body/Aurora Veil synergy, favoring bulky Ice offense. Both are slower, grindier weathers than rain or sun and are often used for defensive backbone rather than fast sweeps. Like all weather they can be overwritten by an opposing setter."
+  },
+  {
+    "id": "prankster-priority-status",
+    "title": "Prankster and priority status",
+    "tags": ["prankster", "ability", "priority", "status", "tailwind", "support"],
+    "text": "Prankster gives the user's status moves plus-one priority, so support like Tailwind, Thunder Wave, Taunt, Will-O-Wisp, or redirection resolves before most attacks. This lets a frail supporter reliably get its effect off even under pressure. Two caveats: Prankster-boosted status moves do not affect Dark-type targets, and the priority applies only to status moves, not damaging ones. Prankster users are prime targets for Taunt, fast attackers, and Fake Out."
+  },
+  {
+    "id": "booster-energy-paradox",
+    "title": "Booster Energy and Paradox abilities",
+    "tags": ["booster-energy", "protosynthesis", "quark-drive", "item", "setup", "speed-control"],
+    "text": "Booster Energy is a single-use item that immediately activates Protosynthesis or Quark Drive, boosting the holder's highest stat by about 30 percent (50 percent for Speed) without needing sun or Electric Terrain. It turns a Paradox Pokemon into an instant threat on turn one, most often boosting Speed to jump the field or an offense stat to break through. Because it is consumed once, the boost is committed to whichever stat is highest, so EV spreads are tuned to make the intended stat win the tiebreak."
+  },
+  {
+    "id": "protect-doubles",
+    "title": "Protect and positioning in doubles",
+    "tags": ["protect", "positioning", "tempo", "doubles", "support"],
+    "text": "Protect is far more valuable in doubles than singles: it lets one Pokemon stall a turn while its partner removes a threat, scout for spread moves, stall out weather or Trick Room, or dodge a predicted double-target. Nearly every doubles Pokemon can justify a Protect slot. The risk is consecutive-use failure and giving the opponent a free turn if your partner cannot capitalize, so Protect is about positioning, not passivity."
+  },
+  {
+    "id": "spread-moves",
+    "title": "Spread moves and target selection",
+    "tags": ["spread-moves", "doubles", "offense", "coverage"],
+    "text": "Spread moves hit both opposing Pokemon (or all others) but deal 75 percent damage in doubles instead of 100. They are excellent for chipping both targets, breaking Focus Sash and Sturdy on the whole side, and bypassing single-target redirection like Follow Me. The tradeoff is lower per-target damage than a focused single-target hit, so teams mix spread pressure with single-target finishers depending on whether they need to spread chip or secure one KO."
+  },
+  {
+    "id": "speed-tiers-tailoring",
+    "title": "Speed tiers and creeping",
+    "tags": ["speed-control", "speed-tiers", "ev-spread", "nature"],
+    "text": "Speed control is not only Tailwind and Trick Room; base Speed plus nature and EV investment determine who moves first in a neutral game. Teams tune Speed to outrun specific benchmark threats (Speed 'creeping' a few points past a known spread) or deliberately underspeed for Trick Room. A common decision per attacker is max Speed with a plus-Speed nature to win the natural race versus a bulkier spread that concedes Speed for survivability, relying on Tailwind or Trick Room to fix the order instead."
+  },
+  {
+    "id": "bring-selection-theory",
+    "title": "Bring selection at Team Preview",
+    "tags": ["bring", "team-preview", "doubles", "singles", "matchup"],
+    "text": "You build six but bring only four in doubles (three in singles), so a team is really a menu of overlapping cores rather than one fixed lineup. Strong teams offer multiple viable brings so you can tailor to what the opponent shows at preview: a Tailwind-offense package into slow teams, a Trick Room or defensive package into fast ones, and answers to their standout threat. When evaluating a team, think in terms of which four (or three) go together against a given opponent, not all six at once."
+  },
+  {
+    "id": "setup-sweeper-wincon",
+    "title": "Setup sweepers as win conditions",
+    "tags": ["setup", "win-condition", "swords-dance", "dragon-dance", "offense"],
+    "text": "A setup sweeper (Swords Dance, Dragon Dance, Nasty Plot, Calm Mind, etc.) is a classic win condition: protect it, remove its checks, get one free turn to boost, then clean. In doubles the free turn usually comes from redirection, a Fake Out or Protect partner, or forcing a double switch. The team's job is to create that safe setup window and to have removed the opposing Pokemon that would revenge-kill the sweeper afterward. Identifying which member is the intended late-game sweeper clarifies the whole game plan."
+  },
+  {
+    "id": "priority-revenge",
+    "title": "Priority moves and revenge killing",
+    "tags": ["priority", "revenge-kill", "offense", "fast-teams"],
+    "text": "Priority moves (Aqua Jet, Extreme Speed, Sucker Punch, Grassy Glide in terrain, etc.) ignore the Speed order and let a team pick off weakened or boosted threats before they act. They are the answer to enemy setup sweepers and fast weather abusers that would otherwise outspeed you. Priority is limited by typing (Sucker Punch fails on status moves; many priority moves are resisted) and by the small base power, so it is a finisher and safety net rather than a primary offense."
+  },
+  {
+    "id": "terrain-effects",
+    "title": "Terrains and their abusers",
+    "tags": ["terrain", "electric-terrain", "grassy-terrain", "psychic-terrain", "misty-terrain"],
+    "text": "Terrains last five turns and affect only grounded Pokemon. Electric Terrain boosts Electric moves and blocks sleep (and powers Quark Drive); Grassy Terrain boosts Grass moves, heals grounded Pokemon each turn, and softens Earthquake; Psychic Terrain boosts Psychic moves and blocks priority against grounded targets; Misty Terrain halves Dragon damage and blocks status. Terrain teams pair a setter with abusers of the matching boost, and Psychic Terrain is notable for shutting off the opponent's priority revenge-kills."
+  },
+  {
+    "id": "defensive-core-pivot",
+    "title": "Defensive cores and pivoting",
+    "tags": ["pivot", "defense", "intimidate", "u-turn", "balance"],
+    "text": "Balanced teams lean on a defensive core plus pivoting moves (U-turn, Volt Switch, Flip Turn, or Parting Shot) to control momentum: attack, then leave on your terms to bring in a better matchup or re-trigger an entrance ability like Intimidate. Good pivots preserve tempo, refresh Fake Out and Intimidate, and keep fragile win conditions safe until their setup window appears. The cost is prediction risk and chip damage, so pivoting is about maintaining favorable matchups rather than raw offense."
+  },
+  {
+    "id": "restricted-and-support",
+    "title": "Star attacker plus support shell",
+    "tags": ["win-condition", "support", "redirection", "teambuilding", "offense"],
+    "text": "A common doubles structure is a standout offensive centerpiece surrounded by a support shell: redirection to keep it safe, Fake Out and Protect for tempo, speed control (Tailwind or Trick Room) to fix its order, and Intimidate or bulk to survive. The centerpiece provides the damage; the other three enable it to act freely. When reading a team, find the centerpiece and ask what each other slot does to buy it turns — that is usually the game plan in one sentence."
+  }
+]
