@@ -15,6 +15,7 @@ import {
 import { memberTechNotes } from "../utils/mechanicsAnnotations";
 import { computeThreats } from "../utils/threatAnalysis";
 import { retrieve, synthesizeTeamQuery } from "../utils/knowledgeRetrieval";
+import { logger } from "../utils/logger";
 import { coachReport, answerQuestion, COACH_QUESTIONS } from "../utils/teamCoach";
 import { loadPassword, savePassword, clearPassword, callCoach, embedQuery } from "../utils/llmClient";
 import TypeBadge from "../components/TypeBadge";
@@ -680,9 +681,11 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
     if (!queryText || !Array.isArray(knowledgeEmbeddings) || knowledgeEmbeddings.length === 0) return [];
     try {
       const vec = await embedQuery({ input: queryText, password });
-      return retrieve(vec, knowledgeEmbeddings, 3);
+      const hits = retrieve(vec, knowledgeEmbeddings, 3);
+      logger.info("Retrieved knowledge:", hits.map((h) => `${h.title} (${h.score.toFixed(2)})`).join(" | ") || "(none)");
+      return hits;
     } catch {
-      return []; // embedQuery already logged; fall back to structured facts
+      return []; // embedQuery already logged the error; fall back to structured facts
     }
   }
 
