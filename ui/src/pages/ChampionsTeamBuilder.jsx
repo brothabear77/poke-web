@@ -27,6 +27,7 @@ const MAX_TEAM = 6;
 const FORMATS = ["Doubles", "Singles"];
 const SLOT_LEAVE_MS = 260; // must match the ctb-slot-out animation duration in CSS
 const ANALYSIS_DEBOUNCE_MS = 1000; // wait after a team/build change before calling the AI
+const ROSTER_PAGE_SIZE = 20; // tiles per page in the full roster picker
 const STAT_LABELS = [
   ["hp", "HP"], ["attack", "Atk"], ["defense", "Def"],
   ["special-attack", "SpA"], ["special-defense", "SpD"], ["speed", "Spe"],
@@ -71,9 +72,12 @@ export default function ChampionsTeamBuilder() {
   const [expandedId, setExpandedId] = useState(null);
   const [leavingIds, setLeavingIds] = useState(new Set());
   const [rosterSearch, setRosterSearch] = useState("");
+  const [rosterPage, setRosterPage] = useState(1);
 
   useEffect(() => { localStorage.setItem("champions-team", JSON.stringify(teamIds)); }, [teamIds]);
   useEffect(() => { localStorage.setItem("champions-builds", JSON.stringify(buildsStore)); }, [buildsStore]);
+  // Back to page 1 whenever the filtered roster changes (search or format).
+  useEffect(() => { setRosterPage(1); }, [rosterSearch, format]);
 
   // PokeAPI id lookup (by normalized name), for sprite resolution only.
   const idByName = useMemo(() => pokeIdByName(allPokemon), [allPokemon]);
@@ -272,12 +276,15 @@ export default function ChampionsTeamBuilder() {
     return scored.slice(0, 12);
   }, [chart, team, teamIds, championsPokemon, teamUsage, format, analysis]);
 
-  // Full Champions roster (all 305 tiles), searchable, for the bottom picker.
+  // Full Champions roster, searchable + paginated, for the bottom picker.
   const filteredRoster = useMemo(() => {
     if (!rosterSearch.trim()) return championsPokemon;
     const q = rosterSearch.trim().toLowerCase();
     return championsPokemon.filter((p) => p.name.replace(/-/g, " ").toLowerCase().includes(q));
   }, [championsPokemon, rosterSearch]);
+  const rosterTotalPages = Math.max(1, Math.ceil(filteredRoster.length / ROSTER_PAGE_SIZE));
+  const rosterPageSafe = Math.min(rosterPage, rosterTotalPages);
+  const pagedRoster = filteredRoster.slice((rosterPageSafe - 1) * ROSTER_PAGE_SIZE, rosterPageSafe * ROSTER_PAGE_SIZE);
 
   const report = useMemo(
     () => coachReport(team, currentBuilds, analysis, teamUsage, movesIndex, format, chart),
@@ -311,14 +318,19 @@ export default function ChampionsTeamBuilder() {
     [team, threatCandidateIds, smogonById, byId, currentBuilds, format, moveMap, chart]
   );
 
-  // Empirical Checks & Counters (Smogon): for each team member, the real Pokémon that
-  // most often beat it in actual battles — a signal the type chart can't produce.
-  const empiricalChecks = useMemo(() => {
+  // Empirical matchups (Smogon): for each team member, the real Pokémon that most often
+  // beat it (checkedBy) and that it most often beats (counters) in actual battles — signals
+  // the type chart can't produce. Scores are the winner's matchup win rate.
+  const empiricalMatchups = useMemo(() => {
     return team.map((p) => {
-      const usage = smogonById.get(p.id);
-      const checks = getBuild(usage, format).checks || [];
-      return { id: p.id, name: p.name.replace(/-/g, " "), checks: checks.slice(0, 5) };
-    }).filter((m) => m.checks.length);
+      const b = getBuild(smogonById.get(p.id), format);
+      return {
+        id: p.id,
+        name: p.name.replace(/-/g, " "),
+        checkedBy: (b.checks || []).slice(0, 5),
+        counters: (b.counters || []).slice(0, 5),
+      };
+    }).filter((m) => m.checkedBy.length || m.counters.length);
   }, [team, smogonById, format]);
 
   if (indexLoading || smogonLoading) return <div className="ctb-loading">Loading Champions data…</div>;
@@ -387,6 +399,7 @@ export default function ChampionsTeamBuilder() {
         {/* Build editor */}
         {expandedId && team.some((p) => p.id === expandedId) && (
           <MemberEditor
+            key={expandedId}
             pokemon={byId.get(expandedId)}
             usage={smogonById.get(expandedId)}
             champUsage={byId.get(expandedId)?.champId != null ? champUsageById.get(byId.get(expandedId).champId) : null}
@@ -462,17 +475,26 @@ export default function ChampionsTeamBuilder() {
             </div>
           </div>
 
-          {/* Empirical Checks & Counters (Smogon) */}
-          {empiricalChecks.length > 0 && (
+          {/* Empirical matchups (Smogon) */}
+          {empiricalMatchups.length > 0 && (
             <div className="ctb-checks">
-              <div className="ctb-an__label">Empirical checks &amp; counters <span className="ctb-muted">(Smogon, same meta)</span></div>
+              <div className="ctb-an__label">Empirical matchups <span className="ctb-muted">(Smogon, same meta — real win rates)</span></div>
               <div className="ctb-checks__grid">
-                {empiricalChecks.map((m) => (
+                {empiricalMatchups.map((m) => (
                   <div key={m.id} className="ctb-checks__row">
                     <span className="ctb-checks__name">{m.name}</span>
-                    <span className="ctb-checks__list">
-                      {m.checks.map((c) => `${c.name} (${(c.score * 100).toFixed(0)}%)`).join(", ")}
-                    </span>
+                    {m.checkedBy.length > 0 && (
+                      <span className="ctb-checks__line">
+                        <span className="ctb-checks__dir ctb-checks__dir--bad">Countered by</span>
+                        {m.checkedBy.map((c) => `${c.name} (${(c.score * 100).toFixed(0)}%)`).join(", ")}
+                      </span>
+                    )}
+                    {m.counters.length > 0 && (
+                      <span className="ctb-checks__line">
+                        <span className="ctb-checks__dir ctb-checks__dir--good">Counters</span>
+                        {m.counters.map((c) => `${c.name} (${(c.score * 100).toFixed(0)}%)`).join(", ")}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -492,7 +514,7 @@ export default function ChampionsTeamBuilder() {
         itemEffects={itemEffects}
         metaThreats={metaThreats}
         threats={threats}
-        empiricalChecks={empiricalChecks}
+        empiricalMatchups={empiricalMatchups}
         knowledgeEmbeddings={knowledgeEmbeddings}
       />
 
@@ -514,7 +536,7 @@ export default function ChampionsTeamBuilder() {
           </div>
         </div>
         <div className="ctb-recs">
-          {filteredRoster.map((p) => {
+          {pagedRoster.map((p) => {
             const onTeam = teamIds.includes(p.id);
             return (
               <button
@@ -543,6 +565,16 @@ export default function ChampionsTeamBuilder() {
             );
           })}
         </div>
+
+        {rosterTotalPages > 1 && (
+          <div className="ctb-pagination">
+            <button disabled={rosterPageSafe === 1} onClick={() => setRosterPage(1)}>«</button>
+            <button disabled={rosterPageSafe === 1} onClick={() => setRosterPage((p) => p - 1)}>‹</button>
+            <span>Page {rosterPageSafe} of {rosterTotalPages}</span>
+            <button disabled={rosterPageSafe === rosterTotalPages} onClick={() => setRosterPage((p) => p + 1)}>›</button>
+            <button disabled={rosterPageSafe === rosterTotalPages} onClick={() => setRosterPage(rosterTotalPages)}>»</button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -651,14 +683,28 @@ function MemberEditor({ pokemon, usage, champUsage, format, build, moveMap, onCh
         </div>
       )}
 
-      {b.checks?.length > 0 && (
+      {(b.checks?.length > 0 || b.counters?.length > 0) && (
         <div className="ctb-editor__checks">
-          <span className="ctb-field__label">Empirical counters (Smogon)</span>
-          <div className="ctb-editor__checks-list">
-            {b.checks.slice(0, 6).map((c) => (
-              <span key={c.key || c.name} className="ctb-check-pill">{c.name} <b>{(c.score * 100).toFixed(0)}%</b></span>
-            ))}
-          </div>
+          {b.checks?.length > 0 && (
+            <div className="ctb-editor__mrow">
+              <span className="ctb-field__label">Countered by (Smogon)</span>
+              <div className="ctb-editor__checks-list">
+                {b.checks.slice(0, 6).map((c) => (
+                  <span key={c.key || c.name} className="ctb-check-pill ctb-check-pill--bad">{c.name} <b>{(c.score * 100).toFixed(0)}%</b></span>
+                ))}
+              </div>
+            </div>
+          )}
+          {b.counters?.length > 0 && (
+            <div className="ctb-editor__mrow">
+              <span className="ctb-field__label">Counters (Smogon)</span>
+              <div className="ctb-editor__checks-list">
+                {b.counters.slice(0, 6).map((c) => (
+                  <span key={c.key || c.name} className="ctb-check-pill ctb-check-pill--good">{c.name} <b>{(c.score * 100).toFixed(0)}%</b></span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -685,7 +731,7 @@ function MemberEditor({ pokemon, usage, champUsage, format, build, moveMap, onCh
 // of each ability / move / item straight from the data indexes, so the model can
 // reason about how the mechanics work and how they interact — and so a future
 // season's new mechanics are covered automatically (no hardcoding).
-function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalChecks, knowledgeChunks) {
+function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, knowledgeChunks) {
   if (report.empty) return "The team is empty.";
   const bringCount = format === "Doubles" ? 4 : 3;
   const roleById = new Map(report.roles.map((r) => [r.id, r.role]));
@@ -732,11 +778,12 @@ function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects
   } else {
     lines.push("COMPUTED THREATS: no common meta Pokémon has a super-effective move against your current team (per the type chart). Pressure will come from strong neutral attackers, coverage moves, or utility (speed control, Fake Out, redirection) — do not invent type advantages.");
   }
-  if (empiricalChecks?.length) {
+  if (empiricalMatchups?.length) {
     lines.push("");
-    lines.push("EMPIRICAL CHECKS & COUNTERS (Smogon, same meta — real Pokémon that most often beat each member in actual battles, not a type calculation; treat as GROUND TRUTH alongside the computed threats above):");
-    for (const m of empiricalChecks) {
-      lines.push(`  - ${m.name} is checked by: ${m.checks.map((c) => `${c.name} (${(c.score * 100).toFixed(0)}%)`).join(", ")}`);
+    lines.push("EMPIRICAL MATCHUPS (Smogon, same meta — real win rates from battle logs, not a type calculation; treat as GROUND TRUTH alongside the computed threats above. % is the winner's rate):");
+    for (const m of empiricalMatchups) {
+      if (m.checkedBy.length) lines.push(`  - ${m.name} is BEATEN BY: ${m.checkedBy.map((c) => `${c.name} (${(c.score * 100).toFixed(0)}%)`).join(", ")}`);
+      if (m.counters.length) lines.push(`  - ${m.name} BEATS: ${m.counters.map((c) => `${c.name} (${(c.score * 100).toFixed(0)}%)`).join(", ")}`);
     }
   }
   if (metaThreats?.length) {
@@ -759,7 +806,7 @@ const BREAKDOWN_PROMPT =
   "and the empirical checks/counters — name the specific Pokémon (and move, where given) that threatens " +
   "each subset. Finish with the top one or two ways to improve the team.";
 
-function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalChecks, knowledgeEmbeddings }) {
+function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, knowledgeEmbeddings }) {
   const [password, setPassword] = useState(() => loadPassword());
   const [loginInput, setLoginInput] = useState("");
   const [loginError, setLoginError] = useState(null);
@@ -782,13 +829,13 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
       const b = currentBuilds.get(p.id) || {};
       return `${p.id}:${b.ability || ""}:${b.item || ""}:${b.nature || ""}:${(b.moves || []).join("/")}:${formatEvs(b.evs)}`;
     }).join("|");
-    // Include the computed threats + checks so analysis re-runs once that data loads.
+    // Include the computed threats + matchups so analysis re-runs once that data loads.
     const threatSig = (threats || []).map((t) => `${t.id}x${t.hits.length}`).join(",");
-    const checksSig = (empiricalChecks || []).map((m) => `${m.id}x${m.checks.length}`).join(",");
+    const checksSig = (empiricalMatchups || []).map((m) => `${m.id}:${m.checkedBy.length}:${m.counters.length}`).join(",");
     // Re-run once the knowledge embeddings finish loading (placeholder [] -> real vectors).
     const kSig = knowledgeEmbeddings?.length || 0;
     return `${teamSig}|${format}|${threatSig}|${checksSig}|k${kSig}`;
-  }, [team, currentBuilds, format, report.empty, threats, empiricalChecks, knowledgeEmbeddings]);
+  }, [team, currentBuilds, format, report.empty, threats, empiricalMatchups, knowledgeEmbeddings]);
 
   const bringCount = format === "Doubles" ? 4 : 3;
   // AI analysis only makes sense once a full "bring" is selected (4 doubles / 3 singles).
@@ -809,14 +856,15 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
       `${bringCount}-mon core(s), explain how those specific Pokémon interact and cover for each other, and note ` +
       `what each core struggles with.\n\n` +
       `CRITICAL — do NOT calculate type effectiveness yourself; you are unreliable at it. All super-effective ` +
-      `matchups are precomputed for you under "COMPUTED SUPER-EFFECTIVE THREATS" and "EMPIRICAL CHECKS & ` +
-      `COUNTERS" (and the team's own coverage). Treat those as the ONLY sources of truth for what threatens ` +
-      `this team. When naming a threat, cite the specific opposing Pokémon (and move, if from the computed ` +
-      `list) — never assert a super-effective, resisted, or immune interaction that is not in the provided data.\n\n` +
+      `matchups are precomputed for you under "COMPUTED SUPER-EFFECTIVE THREATS" and "EMPIRICAL MATCHUPS" ` +
+      `(which Pokémon each member is beaten by / beats, from real battle logs), plus the team's own coverage. ` +
+      `Treat those as the ONLY sources of truth for what threatens or is beaten by this team. When naming a ` +
+      `threat or a favorable matchup, cite the specific opposing Pokémon (and move, if from the computed list) ` +
+      `— never assert a super-effective, resisted, or immune interaction that is not in the provided data.\n\n` +
       knowledgeRule +
       `Be concise, specific, and concrete; prefer a few bullet points. Only use the provided data.\n\n` +
       `TEAM DATA:\n` +
-      buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalChecks, knowledgeChunks)
+      buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, knowledgeChunks)
     );
   }
 
