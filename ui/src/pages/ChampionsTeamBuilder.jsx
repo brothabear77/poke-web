@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { useData } from "../hooks/useData";
 import { useUsageFiles } from "../hooks/useUsageFiles";
+import { useSmogonIndex, useSmogonFiles } from "../hooks/useSmogonFiles";
+import { pokeIdByName, spriteId, normName } from "../utils/smogonRoster";
 import { buildChart } from "../utils/typeChart";
 import { analyzeTeam } from "../utils/teamSuggest";
 import {
@@ -8,7 +10,6 @@ import {
   getBuild,
   classifyRole,
   scoreTeammate,
-  idToNameMap,
   formatEvs,
   movesByName,
 } from "../utils/championsStrategy";
@@ -33,6 +34,7 @@ const STAT_LABELS = [
 const remoteSprite = (id) =>
   `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
 const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+const pct1 = (n) => (n == null ? null : `${(n * 100).toFixed(1)}%`);
 
 function loadJson(key, fallback) {
   try {
@@ -44,8 +46,14 @@ function loadJson(key, fallback) {
 }
 
 export default function ChampionsTeamBuilder() {
-  const { data: usageIndex } = useData("/data/usage/_index.json");
+  // Roster + build data: Smogon (poke-smogon-data) is PRIMARY — same metagame as
+  // Champions, richer (checks/counters, weighted teammates, full sets), and covers
+  // Mega formes Champions' own site doesn't list (Mega is a held-item mechanic there,
+  // and several Champions-original megas don't exist in the base games at all).
+  // Champions' own site is a fresher (daily vs. Smogon's monthly) usage-rank overlay.
+  const { index: smogonIndex, loading: smogonLoading } = useSmogonIndex();
   const { data: allPokemon, loading: indexLoading } = useData("/data/pokemon-index.json");
+  const { data: champUsageIndex } = useData("/data/usage/_index.json");
   const { data: movesIndex } = useData("/data/moves-index.json");
   const { data: itemsIndex } = useData("/data/items-index.json");
   const { data: abilitiesIndex } = useData("/data/abilities-index.json");
@@ -62,46 +70,71 @@ export default function ChampionsTeamBuilder() {
   useEffect(() => { localStorage.setItem("champions-team", JSON.stringify(teamIds)); }, [teamIds]);
   useEffect(() => { localStorage.setItem("champions-builds", JSON.stringify(buildsStore)); }, [buildsStore]);
 
+  // PokeAPI id lookup (by normalized name), for sprite resolution only.
+  const idByName = useMemo(() => pokeIdByName(allPokemon), [allPokemon]);
+  // Champions' own usage index, by normalized name — the freshness overlay join.
+  const champByName = useMemo(() => {
+    const m = new Map();
+    for (const e of champUsageIndex || []) if (e.name) m.set(normName(e.name), e);
+    return m;
+  }, [champUsageIndex]);
+
+  // The full roster (305: base species + Mega formes as separate tiles), sorted by
+  // the active format's Smogon usage %. `id` is the Smogon species key throughout —
+  // the one canonical identifier for team/builds/analysis.
+  const championsPokemon = useMemo(() => {
+    return smogonIndex.map((e) => {
+      const champEntry = champByName.get(normName(e.name));
+      return {
+        id: e.key,
+        name: e.name,
+        types: e.types,
+        bst: e.bst,
+        stats: e.baseStats,
+        num: e.num,
+        isMega: e.isMega,
+        megas: e.megas,
+        spriteId: spriteId(e, idByName),
+        usage: e.usage,
+        champId: champEntry?.id ?? null,
+        champRank: champEntry ? (format === "Doubles" ? champEntry.doubles_rank : champEntry.singles_rank) : null,
+      };
+    }).sort((a, b) => (b.usage?.[format] ?? 0) - (a.usage?.[format] ?? 0));
+  }, [smogonIndex, idByName, champByName, format]);
+
   const byId = useMemo(() => {
     const m = new Map();
-    for (const p of allPokemon || []) m.set(p.id, p);
+    for (const p of championsPokemon) m.set(p.id, p);
     return m;
-  }, [allPokemon]);
+  }, [championsPokemon]);
 
-  const rankKey = format === "Doubles" ? "doubles_rank" : "singles_rank";
+  // 1-based usage rank per format (position in the already-sorted roster) — used for
+  // "#N most-used" labels and as a threat tiebreak, since Smogon gives % not rank.
   const rankById = useMemo(() => {
     const m = new Map();
-    for (const e of usageIndex || []) m.set(e.id, e);
+    championsPokemon.forEach((p, i) => m.set(p.id, i + 1));
     return m;
-  }, [usageIndex]);
+  }, [championsPokemon]);
 
-  // Load usage for the team AND the top meta threats, so threat analysis can read
-  // their real movesets (not just typings). Candidates are the highest-ranked meta
-  // Pokémon not already on the team.
+  // Load Smogon build data for the team AND the top meta threats, so threat analysis
+  // and recommendations can read real movesets/checks (not just typings).
   const threatCandidateIds = useMemo(() => {
-    if (!usageIndex) return [];
     const onTeam = new Set(teamIds);
-    return [...usageIndex]
-      .sort((a, b) => (a[rankKey] ?? 1e9) - (b[rankKey] ?? 1e9))
-      .map((e) => e.id)
-      .filter((id) => !onTeam.has(id))
-      .slice(0, 24);
-  }, [usageIndex, rankKey, teamIds]);
+    return championsPokemon.filter((p) => !onTeam.has(p.id)).slice(0, 24).map((p) => p.id);
+  }, [championsPokemon, teamIds]);
   const analysisIds = useMemo(
     () => [...new Set([...teamIds, ...threatCandidateIds])],
     [teamIds, threatCandidateIds]
   );
-  const { byId: memberUsage } = useUsageFiles(analysisIds);
+  const { byKey: smogonById } = useSmogonFiles(analysisIds);
 
-  const championsPokemon = useMemo(() => {
-    if (!allPokemon || !usageIndex) return [];
-    return usageIndex
-      .map((e) => byId.get(e.id))
-      .filter(Boolean)
-      .sort((a, b) => (rankById.get(a.id)?.[rankKey] ?? 1e9) - (rankById.get(b.id)?.[rankKey] ?? 1e9));
-  }, [allPokemon, usageIndex, byId, rankById, rankKey]);
+  // Champions per-mon usage for the TEAM ONLY — a fresher-usage overlay and the
+  // fallback getBuild() falls back to for the handful of species/format combos
+  // Smogon's stats happen not to cover.
+  const team = useMemo(() => teamIds.map((id) => byId.get(id)).filter(Boolean), [teamIds, byId]);
+  const champTeamIds = useMemo(() => team.map((p) => p.champId).filter((x) => x != null), [team]);
+  const { byId: champUsageById } = useUsageFiles(champTeamIds);
 
-  const idToName = useMemo(() => idToNameMap(usageIndex), [usageIndex]);
   const moveMap = useMemo(() => movesByName(movesIndex), [movesIndex]);
   // Effect-text lookups (display name -> short effect), used to ground the LLM
   // in how each mechanic actually works. Data-driven, so new abilities/moves/
@@ -117,27 +150,28 @@ export default function ChampionsTeamBuilder() {
     return m;
   }, [itemsIndex]);
   const chart = useMemo(() => buildChart(typesData), [typesData]);
-  const team = useMemo(() => teamIds.map((id) => byId.get(id)).filter(Boolean), [teamIds, byId]);
   const analysis = useMemo(() => analyzeTeam(team, chart), [team, chart]);
 
   const teamUsage = useMemo(
-    () => team.map((p) => ({ pokemon: p, usage: memberUsage.get(p.id) })).filter((m) => m.usage),
-    [team, memberUsage]
+    () => team.map((p) => ({ pokemon: p, usage: smogonById.get(p.id) })).filter((m) => m.usage),
+    [team, smogonById]
   );
 
-  // Resolved build for each member: stored override, else rank-1 default.
+  // Resolved build for each member: stored override, else rank-1 default
+  // (Smogon primary, Champions fallback for the rare species/format Smogon misses).
   const currentBuilds = useMemo(() => {
     const m = new Map();
     for (const p of team) {
       const stored = buildsStore[p.id]?.[format];
       if (stored) m.set(p.id, stored);
       else {
-        const usage = memberUsage.get(p.id);
-        if (usage) m.set(p.id, defaultBuild(usage, format));
+        const smogonRecord = smogonById.get(p.id);
+        const champUsage = p.champId != null ? champUsageById.get(p.champId) : null;
+        if (smogonRecord || champUsage) m.set(p.id, defaultBuild(smogonRecord, format, champUsage));
       }
     }
     return m;
-  }, [team, buildsStore, format, memberUsage]);
+  }, [team, buildsStore, format, smogonById, champUsageById]);
 
   function addToTeam(p) {
     setTeamIds((ids) => (ids.length >= MAX_TEAM || ids.includes(p.id) ? ids : [...ids, p.id]));
@@ -174,22 +208,22 @@ export default function ChampionsTeamBuilder() {
     if (team.length === 0) {
       return pool.slice(0, 12).map((p) => ({
         pokemon: p,
-        reason: `#${rankById.get(p.id)?.[rankKey] ?? "?"} most-used`,
+        reason: pct1(p.usage?.[format]) ? `${pct1(p.usage[format])} usage` : `#${rankById.get(p.id)} most-used`,
       }));
     }
     const scored = pool.map((p) => {
-      const r = scoreTeammate(p, idToName.get(p.id), teamUsage, format, chart, analysis);
+      const r = scoreTeammate(p, teamUsage, format, chart, analysis);
       return { pokemon: p, score: r.score, reason: r.reason };
     });
     scored.sort((a, b) => b.score - a.score || b.pokemon.bst - a.pokemon.bst);
     return scored.slice(0, 12);
-  }, [chart, team, teamIds, championsPokemon, teamUsage, format, analysis, idToName, rankById, rankKey]);
+  }, [chart, team, teamIds, championsPokemon, teamUsage, format, analysis, rankById]);
 
-  // Full Champions roster (every meta Pokémon), searchable, for the bottom picker.
+  // Full Champions roster (all 305 tiles), searchable, for the bottom picker.
   const filteredRoster = useMemo(() => {
     if (!rosterSearch.trim()) return championsPokemon;
     const q = rosterSearch.trim().toLowerCase();
-    return championsPokemon.filter((p) => p.name.replace(/-/g, " ").includes(q));
+    return championsPokemon.filter((p) => p.name.replace(/-/g, " ").toLowerCase().includes(q));
   }, [championsPokemon, rosterSearch]);
 
   const report = useMemo(
@@ -197,16 +231,14 @@ export default function ChampionsTeamBuilder() {
     [team, currentBuilds, analysis, teamUsage, movesIndex, format, chart]
   );
 
-  // Top meta Pokémon (by the active format's usage rank) so the coach can name
-  // specific threats rather than just threatening types. championsPokemon is
-  // already sorted by that rank.
+  // Top meta Pokémon (by the active format's usage) for the coach's general context.
   const metaThreats = useMemo(
     () => championsPokemon.slice(0, 30).map((p) => ({
       name: p.name.replace(/-/g, " "),
       types: p.types,
-      rank: rankById.get(p.id)?.[rankKey],
+      rank: rankById.get(p.id),
     })),
-    [championsPokemon, rankById, rankKey]
+    [championsPokemon, rankById]
   );
 
   // Deterministic, move-level threat analysis: which specific meta Pokémon have
@@ -215,18 +247,28 @@ export default function ChampionsTeamBuilder() {
   const threats = useMemo(
     () => computeThreats({
       team,
-      threatList: threatCandidateIds.map((id) => ({ id, rank: rankById.get(id)?.[rankKey] })),
-      usageById: memberUsage,
+      threatList: threatCandidateIds.map((id) => ({ id, rank: rankById.get(id) })),
+      smogonById,
       byId,
       builds: currentBuilds,
       format,
       moveMap,
       chart,
     }),
-    [team, threatCandidateIds, memberUsage, byId, currentBuilds, format, moveMap, chart, rankById, rankKey]
+    [team, threatCandidateIds, smogonById, byId, currentBuilds, format, moveMap, chart, rankById]
   );
 
-  if (indexLoading) return <div className="ctb-loading">Loading Champions data…</div>;
+  // Empirical Checks & Counters (Smogon): for each team member, the real Pokémon that
+  // most often beat it in actual battles — a signal the type chart can't produce.
+  const empiricalChecks = useMemo(() => {
+    return team.map((p) => {
+      const usage = smogonById.get(p.id);
+      const checks = getBuild(usage, format).checks || [];
+      return { id: p.id, name: p.name.replace(/-/g, " "), checks: checks.slice(0, 5) };
+    }).filter((m) => m.checks.length);
+  }, [team, smogonById, format]);
+
+  if (indexLoading || smogonLoading) return <div className="ctb-loading">Loading Champions data…</div>;
 
   return (
     <div className="ctb-page">
@@ -254,7 +296,7 @@ export default function ChampionsTeamBuilder() {
             const p = team[i];
             if (!p) return <div key={i} className="ctb-slot ctb-slot--empty">Slot {i + 1}</div>;
             const build = currentBuilds.get(p.id);
-            const usage = memberUsage.get(p.id);
+            const usage = smogonById.get(p.id);
             const natures = usage ? getBuild(usage, format).natures : [];
             const role = build ? classifyRole(build, natures, p.stats) : "…";
             const leaving = leavingIds.has(p.id);
@@ -271,10 +313,11 @@ export default function ChampionsTeamBuilder() {
                   aria-label="Build details"
                   title="Ability, moves, item, EVs"
                 >i</button>
+                {p.isMega && <span className="ctb-slot__mega" title="Mega Evolution">MEGA</span>}
                 <img
                   className="ctb-slot__sprite"
-                  src={assetUrl(`/sprites/pokemon/${p.id}.png`)}
-                  onError={(e) => { if (!e.target.src.startsWith("http")) e.target.src = remoteSprite(p.id); }}
+                  src={assetUrl(`/sprites/pokemon/${p.spriteId}.png`)}
+                  onError={(e) => { if (!e.target.src.startsWith("http")) e.target.src = remoteSprite(p.spriteId); }}
                   alt={p.name}
                 />
                 <div className="ctb-slot__name">{p.name.replace(/-/g, " ")}</div>
@@ -291,7 +334,8 @@ export default function ChampionsTeamBuilder() {
         {expandedId && team.some((p) => p.id === expandedId) && (
           <MemberEditor
             pokemon={byId.get(expandedId)}
-            usage={memberUsage.get(expandedId)}
+            usage={smogonById.get(expandedId)}
+            champUsage={byId.get(expandedId)?.champId != null ? champUsageById.get(byId.get(expandedId).champId) : null}
             format={format}
             build={currentBuilds.get(expandedId)}
             moveMap={moveMap}
@@ -311,10 +355,11 @@ export default function ChampionsTeamBuilder() {
           <div className="ctb-recs">
             {recommendations.map(({ pokemon, reason }) => (
               <button key={pokemon.id} className="ctb-rec" onClick={() => addToTeam(pokemon)}>
+                {pokemon.isMega && <span className="ctb-rec__mega" title="Mega Evolution">MEGA</span>}
                 <img
                   className="ctb-rec__sprite"
-                  src={assetUrl(`/sprites/pokemon/${pokemon.id}.png`)}
-                  onError={(e) => { if (!e.target.src.startsWith("http")) e.target.src = remoteSprite(pokemon.id); }}
+                  src={assetUrl(`/sprites/pokemon/${pokemon.spriteId}.png`)}
+                  onError={(e) => { if (!e.target.src.startsWith("http")) e.target.src = remoteSprite(pokemon.spriteId); }}
                   alt={pokemon.name}
                   loading="lazy"
                 />
@@ -361,6 +406,23 @@ export default function ChampionsTeamBuilder() {
               <div><div className="ctb-an__num">{analysis.bstAvg}</div><div className="ctb-an__sub">Avg BST</div></div>
             </div>
           </div>
+
+          {/* Empirical Checks & Counters (Smogon) */}
+          {empiricalChecks.length > 0 && (
+            <div className="ctb-checks">
+              <div className="ctb-an__label">Empirical checks &amp; counters <span className="ctb-muted">(Smogon, same meta)</span></div>
+              <div className="ctb-checks__grid">
+                {empiricalChecks.map((m) => (
+                  <div key={m.id} className="ctb-checks__row">
+                    <span className="ctb-checks__name">{m.name}</span>
+                    <span className="ctb-checks__list">
+                      {m.checks.map((c) => `${c.name} (${(c.score * 100).toFixed(0)}%)`).join(", ")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -375,6 +437,7 @@ export default function ChampionsTeamBuilder() {
         itemEffects={itemEffects}
         metaThreats={metaThreats}
         threats={threats}
+        empiricalChecks={empiricalChecks}
         knowledgeEmbeddings={knowledgeEmbeddings}
       />
 
@@ -398,7 +461,6 @@ export default function ChampionsTeamBuilder() {
         <div className="ctb-recs">
           {filteredRoster.map((p) => {
             const onTeam = teamIds.includes(p.id);
-            const rank = rankById.get(p.id)?.[rankKey];
             return (
               <button
                 key={p.id}
@@ -406,10 +468,11 @@ export default function ChampionsTeamBuilder() {
                 onClick={() => addToTeam(p)}
                 disabled={onTeam || team.length >= MAX_TEAM}
               >
+                {p.isMega && <span className="ctb-rec__mega" title="Mega Evolution">MEGA</span>}
                 <img
                   className="ctb-rec__sprite"
-                  src={assetUrl(`/sprites/pokemon/${p.id}.png`)}
-                  onError={(e) => { if (!e.target.src.startsWith("http")) e.target.src = remoteSprite(p.id); }}
+                  src={assetUrl(`/sprites/pokemon/${p.spriteId}.png`)}
+                  onError={(e) => { if (!e.target.src.startsWith("http")) e.target.src = remoteSprite(p.spriteId); }}
                   alt={p.name}
                   loading="lazy"
                 />
@@ -417,7 +480,9 @@ export default function ChampionsTeamBuilder() {
                 <div className="ctb-rec__types">
                   {p.types.map((t) => <TypeBadge key={t} type={t} small />)}
                 </div>
-                <div className="ctb-rec__reason">{onTeam ? "On team" : (rank ? `#${rank} most-used` : "")}</div>
+                <div className="ctb-rec__reason">
+                  {onTeam ? "On team" : (pct1(p.usage?.[format]) ? `${pct1(p.usage[format])} usage` : `#${rankById.get(p.id)}`)}
+                </div>
               </button>
             );
           })}
@@ -438,9 +503,9 @@ function Field({ label, children }) {
   );
 }
 
-function MemberEditor({ pokemon, usage, format, build, moveMap, onChange }) {
-  if (!usage || !build) return <div className="ctb-editor ctb-editor--loading">Loading build…</div>;
-  const b = getBuild(usage, format);
+function MemberEditor({ pokemon, usage, champUsage, format, build, moveMap, onChange }) {
+  if (!build || (!usage && !champUsage)) return <div className="ctb-editor ctb-editor--loading">Loading build…</div>;
+  const b = getBuild(usage, format, champUsage);
   const notes = memberTechNotes(pokemon, build, moveMap);
 
   const setMove = (i, value) => {
@@ -453,6 +518,7 @@ function MemberEditor({ pokemon, usage, format, build, moveMap, onChange }) {
     <div className="ctb-editor">
       <div className="ctb-editor__title">
         {pokemon.name.replace(/-/g, " ")} — {format} build
+        {pokemon.champRank && <span className="ctb-muted ctb-editor__rank"> · Champions #{pokemon.champRank} this week</span>}
       </div>
       <div className="ctb-editor__grid">
         <Field label="Ability">
@@ -523,6 +589,17 @@ function MemberEditor({ pokemon, usage, format, build, moveMap, onChange }) {
         </div>
       )}
 
+      {b.checks?.length > 0 && (
+        <div className="ctb-editor__checks">
+          <span className="ctb-field__label">Empirical counters (Smogon)</span>
+          <div className="ctb-editor__checks-list">
+            {b.checks.slice(0, 6).map((c) => (
+              <span key={c.key || c.name} className="ctb-check-pill">{c.name} <b>{(c.score * 100).toFixed(0)}%</b></span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Base stats across the bottom */}
       <div className="ctb-editor__stats">
         {STAT_LABELS.map(([key, label]) => (
@@ -546,7 +623,7 @@ function MemberEditor({ pokemon, usage, format, build, moveMap, onChange }) {
 // of each ability / move / item straight from the data indexes, so the model can
 // reason about how the mechanics work and how they interact — and so a future
 // season's new mechanics are covered automatically (no hardcoding).
-function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, knowledgeChunks) {
+function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalChecks, knowledgeChunks) {
   if (report.empty) return "The team is empty.";
   const bringCount = format === "Doubles" ? 4 : 3;
   const roleById = new Map(report.roles.map((r) => [r.id, r.role]));
@@ -562,7 +639,7 @@ function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects
   for (const p of team) {
     const b = currentBuilds.get(p.id);
     if (!b) continue;
-    lines.push(`• ${p.name.replace(/-/g, " ")} [${p.types.join("/")}] — ${roleById.get(p.id) || "—"}`);
+    lines.push(`• ${p.name.replace(/-/g, " ")} [${p.types.join("/")}]${p.isMega ? " (Mega Evolution)" : ""} — ${roleById.get(p.id) || "—"}`);
     if (b.ability) lines.push(`    Ability — ${b.ability}: ${abilityEffects.get(b.ability) || "(effect unknown)"}`);
     if (b.item) lines.push(`    Item — ${b.item}: ${itemEffects.get(b.item) || "(effect unknown)"}`);
     const moves = (b.moves || []).filter(Boolean);
@@ -593,6 +670,13 @@ function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects
   } else {
     lines.push("COMPUTED THREATS: no common meta Pokémon has a super-effective move against your current team (per the type chart). Pressure will come from strong neutral attackers, coverage moves, or utility (speed control, Fake Out, redirection) — do not invent type advantages.");
   }
+  if (empiricalChecks?.length) {
+    lines.push("");
+    lines.push("EMPIRICAL CHECKS & COUNTERS (Smogon, same meta — real Pokémon that most often beat each member in actual battles, not a type calculation; treat as GROUND TRUTH alongside the computed threats above):");
+    for (const m of empiricalChecks) {
+      lines.push(`  - ${m.name} is checked by: ${m.checks.map((c) => `${c.name} (${(c.score * 100).toFixed(0)}%)`).join(", ")}`);
+    }
+  }
   if (metaThreats?.length) {
     lines.push("");
     lines.push("OTHER COMMON META POKÉMON (popular in the format; discuss as offensive/utility threats if relevant, but do NOT assert any super-effective or immune matchup that isn't in the COMPUTED list above):");
@@ -609,11 +693,11 @@ function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects
 const BREAKDOWN_PROMPT =
   "Give me a strategic breakdown built around which Pokémon you'd actually bring together. " +
   "Identify the best subset(s) to bring, how those specific Pokémon interact and cover for each other, " +
-  "and each subset's game plan and win condition. For threats, use ONLY the computed super-effective list — " +
-  "name the specific Pokémon and the specific move that threatens each subset. Finish with the top one or " +
-  "two ways to improve the team.";
+  "and each subset's game plan and win condition. For threats, use ONLY the computed super-effective list " +
+  "and the empirical checks/counters — name the specific Pokémon (and move, where given) that threatens " +
+  "each subset. Finish with the top one or two ways to improve the team.";
 
-function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, knowledgeEmbeddings }) {
+function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalChecks, knowledgeEmbeddings }) {
   const [password, setPassword] = useState(() => loadPassword());
   const [loginInput, setLoginInput] = useState("");
   const [loginError, setLoginError] = useState(null);
@@ -636,12 +720,13 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
       const b = currentBuilds.get(p.id) || {};
       return `${p.id}:${b.ability || ""}:${b.item || ""}:${b.nature || ""}:${(b.moves || []).join("/")}:${formatEvs(b.evs)}`;
     }).join("|");
-    // Include the computed threats so analysis re-runs once threat usage loads.
+    // Include the computed threats + checks so analysis re-runs once that data loads.
     const threatSig = (threats || []).map((t) => `${t.id}x${t.hits.length}`).join(",");
+    const checksSig = (empiricalChecks || []).map((m) => `${m.id}x${m.checks.length}`).join(",");
     // Re-run once the knowledge embeddings finish loading (placeholder [] -> real vectors).
     const kSig = knowledgeEmbeddings?.length || 0;
-    return `${teamSig}|${format}|${threatSig}|k${kSig}`;
-  }, [team, currentBuilds, format, report.empty, threats, knowledgeEmbeddings]);
+    return `${teamSig}|${format}|${threatSig}|${checksSig}|k${kSig}`;
+  }, [team, currentBuilds, format, report.empty, threats, empiricalChecks, knowledgeEmbeddings]);
 
   const bringCount = format === "Doubles" ? 4 : 3;
   // AI analysis only makes sense once a full "bring" is selected (4 doubles / 3 singles).
@@ -662,14 +747,14 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
       `${bringCount}-mon core(s), explain how those specific Pokémon interact and cover for each other, and note ` +
       `what each core struggles with.\n\n` +
       `CRITICAL — do NOT calculate type effectiveness yourself; you are unreliable at it. All super-effective ` +
-      `matchups are precomputed for you under "COMPUTED SUPER-EFFECTIVE THREATS" (and the team's own coverage). ` +
-      `Treat that as the ONLY source of truth for what is super-effective or immune. When naming a threat, cite the ` +
-      `specific opposing Pokémon AND the specific move from that list (e.g. "Landorus's Earthquake"). Never assert a ` +
-      `super-effective, resisted, or immune interaction that is not in the provided data.\n\n` +
+      `matchups are precomputed for you under "COMPUTED SUPER-EFFECTIVE THREATS" and "EMPIRICAL CHECKS & ` +
+      `COUNTERS" (and the team's own coverage). Treat those as the ONLY sources of truth for what threatens ` +
+      `this team. When naming a threat, cite the specific opposing Pokémon (and move, if from the computed ` +
+      `list) — never assert a super-effective, resisted, or immune interaction that is not in the provided data.\n\n` +
       knowledgeRule +
       `Be concise, specific, and concrete; prefer a few bullet points. Only use the provided data.\n\n` +
       `TEAM DATA:\n` +
-      buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, knowledgeChunks)
+      buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalChecks, knowledgeChunks)
     );
   }
 

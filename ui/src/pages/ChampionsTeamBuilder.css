@@ -148,6 +148,16 @@
 .ctb-slot__sprite { width: 56px; height: 56px; object-fit: contain; image-rendering: pixelated; }
 .ctb-slot__name { font-size: 0.8rem; font-weight: 700; text-transform: capitalize; line-height: 1.1; }
 .ctb-slot__role { font-size: 0.66rem; font-weight: 700; color: #5a8ef8; text-transform: uppercase; letter-spacing: 0.03em; }
+.ctb-slot__mega {
+  position: absolute; top: 5px; left: 5px;
+  font-size: 0.58rem; font-weight: 800; letter-spacing: 0.03em;
+  color: #fff; background: #a259ff; border-radius: 4px; padding: 1px 4px;
+}
+.ctb-rec__mega {
+  align-self: flex-start;
+  font-size: 0.56rem; font-weight: 800; letter-spacing: 0.03em;
+  color: #fff; background: #a259ff; border-radius: 4px; padding: 1px 4px; margin-bottom: 2px;
+}
 .ctb-slot__types { display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; }
 
 /* Base stats across the bottom of the build editor */
@@ -336,6 +346,22 @@
 .ctb-an__sub { font-size: 0.66rem; color: #999; text-transform: uppercase; letter-spacing: 0.04em; }
 .ctb-weak { display: inline-flex; align-items: center; gap: 2px; font-size: 0.72rem; font-weight: 700; color: #CE0022; }
 .ctb-good { color: #2e9e5b; font-weight: 700; font-size: 0.82rem; }
+
+/* Empirical checks & counters */
+.ctb-checks { margin-top: 16px; padding-top: 14px; border-top: 1px solid #eee; }
+.ctb-checks__grid { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.ctb-checks__row { font-size: 0.78rem; line-height: 1.4; }
+.ctb-checks__name { font-weight: 700; color: #333; }
+.ctb-checks__name::after { content: ":"; margin-right: 4px; }
+.ctb-checks__list { color: #666; }
+.ctb-editor__checks { margin-top: 12px; }
+.ctb-editor__checks-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.ctb-check-pill {
+  font-size: 0.72rem; background: #fff3f3; color: #a8001b;
+  border-radius: 12px; padding: 2px 9px;
+}
+.ctb-check-pill b { font-weight: 800; }
+.ctb-editor__rank { font-weight: 600; }
 
 /* Coach */
 .ctb-coach__actions { display: flex; gap: 8px; align-items: center; }
