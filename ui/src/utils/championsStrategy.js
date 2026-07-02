@@ -1,13 +1,17 @@
 // Champions strategy layer.
 //
-// Pure functions that turn the raw Champions usage JSON (per-format ranked
-// moves / items / abilities / natures / EV-spreads + an ordinal teammate list)
-// into the things the team builder needs: seed builds, role classification,
-// real-moveset coverage, speed proxies, and usage-driven teammate scoring.
+// Pure functions that turn per-Pokémon build data into what the team builder needs:
+// seed builds, role classification, real-moveset coverage, speed proxies, and
+// usage-driven teammate scoring.
 //
-// SMOGON-LATER SEAM: every read of build data goes through `getBuild` below.
-// To add a Smogon source, fetch it into a parallel cache and merge it inside
-// `getBuild` behind a source flag — the page and the rest of this file stay put.
+// DATA SOURCES: Smogon (poke-smogon-data, via useSmogonFiles) is the PRIMARY source —
+// it's the same metagame as Champions but with richer data (weighted teammates, empirical
+// checks/counters, full sets) and covers Mega formes Champions' own site doesn't list at
+// all (Mega is a held-item mechanic there, and several Champions-original megas don't
+// exist in the base games). Champions' own site (championsbattledata.com, via
+// useUsageFiles) is a fresher (daily vs. Smogon's monthly) usage-rank overlay and a
+// fallback when Smogon lacks a species/format. `getBuild` is the single seam that merges
+// them — everything else here (and the page) is agnostic to where the data came from.
 
 import { scoreCandidate } from "./teamSuggest";
 
@@ -23,9 +27,28 @@ export function formatEvs(evs) {
     .join(" / ") || "No EVs";
 }
 
-// The single accessor for a Pokémon's build data in a given format.
-export function getBuild(usageJson, format) {
-  const fd = usageJson?.formats?.[format] || {};
+// Normalize a Smogon {name, pct} entry to the Champions-style {name, percentage} shape
+// the rest of this file (and MemberEditor) already expects.
+const rankedFrom = (list) => (list || []).map((e) => ({ name: e.name, percentage: e.pct }));
+
+// The single accessor for a Pokémon's build data in a given format. Prefers the Smogon
+// record (richer: real % teammates, checks/counters, natures); falls back to the
+// Champions usage record for a species/format Smogon doesn't cover.
+export function getBuild(smogonRecord, format, champUsage) {
+  const sf = smogonRecord?.formats?.[format];
+  if (sf) {
+    return {
+      moves:     rankedFrom(sf.moves),
+      items:     rankedFrom(sf.items),
+      abilities: rankedFrom(sf.abilities),
+      natures:   (sf.natures || []).map((n) => ({ name: n.name, percentage: n.pct, stat_up: n.up, stat_down: n.down })),
+      spreads:   (sf.spreads || []).map((s) => ({ name: s.nature, percentage: s.pct, evs: s.evs })),
+      teammates: (sf.teammates || []).map((t) => ({ name: t.name, key: t.key, percentage: t.pct })),
+      checks:    sf.checks || [],
+    };
+  }
+  // Fallback: a species/format Smogon doesn't cover (rare — it covers ~all of the roster).
+  const fd = champUsage?.formats?.[format] || {};
   return {
     moves:     fd.move || [],
     items:     fd.held_item || [],
@@ -33,12 +56,13 @@ export function getBuild(usageJson, format) {
     natures:   fd.stat_alignment || [],
     spreads:   fd.stat_points || [],
     teammates: fd.teammate || [],
+    checks:    [],
   };
 }
 
 // Seed an editable build from the rank-1 picks (+ top-4 moves).
-export function defaultBuild(usageJson, format) {
-  const b = getBuild(usageJson, format);
+export function defaultBuild(smogonRecord, format, champUsage) {
+  const b = getBuild(smogonRecord, format, champUsage);
   return {
     ability: b.abilities[0]?.name ?? null,
     moves:   b.moves.slice(0, 4).map((m) => m.name),
@@ -108,36 +132,26 @@ export function effectiveSpeed(baseSpeed, buildState, natures) {
   return Math.round((baseSpeed + evSpeed * 1.5) * mult);
 }
 
-// Name <-> id maps from the augmented usage `_index.json` ([{id, name, ...}]).
-export function nameToIdMap(usageIndex) {
-  const m = new Map();
-  for (const e of usageIndex || []) if (e.name) m.set(e.name, e.id);
-  return m;
-}
-export function idToNameMap(usageIndex) {
-  const m = new Map();
-  for (const e of usageIndex || []) if (e.name) m.set(e.id, e.name);
-  return m;
-}
-
-// Score a candidate teammate for the current (partial) team. Blends usage
-// co-occurrence (how often current members run this candidate as a partner)
-// with type synergy from the shared scoring engine.
-//   teamUsage: [{ pokemon, usage }]  usage = the member's usage JSON
-//   candidateName: the candidate's Champions display name (for teammate lookup)
-export function scoreTeammate(candidate, candidateName, teamUsage, format, chart, analysis) {
-  // Usage co-occurrence: sum (11 - rank) wherever a member lists the candidate.
+// Score a candidate teammate for the current (partial) team. Blends real usage
+// co-occurrence (Smogon's weighted teammate %, keyed by species key — much stronger
+// signal than Champions' rank-only list) with type synergy from the shared engine.
+//   candidate: a roster entry (candidate.id = its Smogon species key)
+//   teamUsage: [{ pokemon, usage }]  usage = the member's Smogon record (same shape
+//   coachReport/teamCoach.js expects, so the same array can feed both).
+export function scoreTeammate(candidate, teamUsage, format, chart, analysis) {
+  // Usage co-occurrence: sum the real teammate % wherever a member lists the candidate.
   let coocRaw = 0;
   const partners = [];
   for (const { pokemon, usage } of teamUsage) {
     const list = getBuild(usage, format).teammates;
-    const hit = list.find((t) => t.name === candidateName);
+    const hit = list.find((t) => t.key === candidate.id);
     if (hit) {
-      coocRaw += Math.max(0, 11 - hit.rank);
+      coocRaw += hit.percentage || 0;
       partners.push(pokemon.name.replace(/-/g, " "));
     }
   }
-  const coocNorm = teamUsage.length ? coocRaw / (teamUsage.length * 10) : 0;
+  // Normalize against a generous ~50%-co-occurrence ceiling per member.
+  const coocNorm = teamUsage.length ? coocRaw / (teamUsage.length * 50) : 0;
 
   const meta = scoreCandidate(candidate, analysis, chart);
 
