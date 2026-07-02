@@ -44,7 +44,8 @@ export function getBuild(smogonRecord, format, champUsage) {
       natures:   (sf.natures || []).map((n) => ({ name: n.name, percentage: n.pct, stat_up: n.up, stat_down: n.down })),
       spreads:   (sf.spreads || []).map((s) => ({ name: s.nature, percentage: s.pct, evs: s.evs })),
       teammates: (sf.teammates || []).map((t) => ({ name: t.name, key: t.key, percentage: t.pct })),
-      checks:    sf.checks || [],
+      checks:    sf.checks || [],   // mons that beat this one
+      counters:  sf.counters || [], // mons this one beats
     };
   }
   // Fallback: a species/format Smogon doesn't cover (rare — it covers ~all of the roster).
@@ -57,6 +58,7 @@ export function getBuild(smogonRecord, format, champUsage) {
     spreads:   fd.stat_points || [],
     teammates: fd.teammate || [],
     checks:    [],
+    counters:  [],
   };
 }
 

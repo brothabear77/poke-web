@@ -195,10 +195,22 @@
 .ctb-stat--total .ctb-stat__val { color: #5a8ef8; }
 
 /* Build editor */
+@keyframes ctb-editor-drop {
+  from {
+    opacity: 0; transform: translateY(-6px);
+    max-height: 0; margin-top: 0; padding-top: 0; border-top-color: transparent;
+  }
+  to {
+    opacity: 1; transform: translateY(0);
+    max-height: 1600px; margin-top: 12px; padding-top: 12px; border-top-color: #eee;
+  }
+}
 .ctb-editor {
   margin-top: 12px;
   border-top: 1px solid #eee;
   padding-top: 12px;
+  overflow: hidden;
+  animation: ctb-editor-drop 0.3s ease-out;
 }
 .ctb-editor--loading { color: #aaa; font-size: 0.85rem; }
 .ctb-editor__title {
@@ -316,6 +328,7 @@
   outline: 2px solid transparent;
   outline-offset: -2px;
   transition: outline-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  justify-content: space-between;
 }
 /* Suggested cards are click-to-ADD, so hover uses a green accent (vs. the team
    slots' red remove accent). */
@@ -358,19 +371,22 @@
 .ctb-weak { display: inline-flex; align-items: center; gap: 2px; font-size: 0.72rem; font-weight: 700; color: #CE0022; }
 .ctb-good { color: #2e9e5b; font-weight: 700; font-size: 0.82rem; }
 
-/* Empirical checks & counters */
+/* Empirical matchups (checks & counters) */
 .ctb-checks { margin-top: 16px; padding-top: 14px; border-top: 1px solid #eee; }
-.ctb-checks__grid { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
-.ctb-checks__row { font-size: 0.78rem; line-height: 1.4; }
-.ctb-checks__name { font-weight: 700; color: #333; }
-.ctb-checks__name::after { content: ":"; margin-right: 4px; }
-.ctb-checks__list { color: #666; }
-.ctb-editor__checks { margin-top: 12px; }
-.ctb-editor__checks-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-.ctb-check-pill {
-  font-size: 0.72rem; background: #fff3f3; color: #a8001b;
-  border-radius: 12px; padding: 2px 9px;
-}
+.ctb-checks__grid { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.ctb-checks__row { display: flex; flex-direction: column; gap: 2px; font-size: 0.78rem; line-height: 1.4; }
+.ctb-checks__name { font-weight: 800; color: #333; }
+.ctb-checks__line { color: #666; padding-left: 10px; }
+.ctb-checks__dir { font-weight: 700; margin-right: 5px; }
+.ctb-checks__dir::after { content: ":"; }
+.ctb-checks__dir--bad { color: #CE0022; }
+.ctb-checks__dir--good { color: #2e9e5b; }
+.ctb-editor__checks { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.ctb-editor__mrow { display: flex; flex-direction: column; gap: 4px; }
+.ctb-editor__checks-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.ctb-check-pill { font-size: 0.72rem; border-radius: 12px; padding: 2px 9px; }
+.ctb-check-pill--bad { background: #fff3f3; color: #a8001b; }
+.ctb-check-pill--good { background: #eef8f1; color: #1f7a43; }
 .ctb-check-pill b { font-weight: 800; }
 .ctb-editor__rank { font-weight: 600; }
 .ctb-editor__nosmog {
@@ -504,3 +520,24 @@
 @media (max-width: 480px) {
   .ctb-slots { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* Roster pagination (mirrors the main TeamBuilder) */
+.ctb-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+.ctb-pagination button {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+.ctb-pagination button:hover:not(:disabled) { background: #f0f4ff; }
+.ctb-pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+.ctb-pagination span { font-size: 0.85rem; color: #555; }
