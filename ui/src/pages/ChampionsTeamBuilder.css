@@ -158,6 +158,17 @@
   font-size: 0.56rem; font-weight: 800; letter-spacing: 0.03em;
   color: #fff; background: #a259ff; border-radius: 4px; padding: 1px 4px; margin-bottom: 2px;
 }
+/* "no Smogon data" marker (amber = data note, not a special forme) */
+.ctb-slot__nosmog {
+  position: absolute; top: 5px; left: 5px;
+  font-size: 0.5rem; font-weight: 800; letter-spacing: 0.02em;
+  color: #fff; background: #b8863b; border-radius: 4px; padding: 1px 4px;
+}
+.ctb-rec__nosmog {
+  align-self: flex-start;
+  font-size: 0.5rem; font-weight: 800; letter-spacing: 0.02em;
+  color: #fff; background: #b8863b; border-radius: 4px; padding: 1px 4px; margin-bottom: 2px;
+}
 .ctb-slot__types { display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; }
 
 /* Base stats across the bottom of the build editor */
@@ -362,6 +373,10 @@
 }
 .ctb-check-pill b { font-weight: 800; }
 .ctb-editor__rank { font-weight: 600; }
+.ctb-editor__nosmog {
+  margin-top: 8px; font-size: 0.78rem; color: #8a6d3b; line-height: 1.4;
+  background: #fdf6e3; border: 1px solid #f0e4c0; border-radius: 6px; padding: 6px 10px;
+}
 
 /* Coach */
 .ctb-coach__actions { display: flex; gap: 8px; align-items: center; }
