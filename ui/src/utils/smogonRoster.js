@@ -20,3 +20,30 @@ export function spriteId(entry, idByName) {
   const hit = idByName.get(normName(entry.name));
   return hit ?? entry.num; // mega/unknown -> base national-dex num (always has a sprite)
 }
+
+// Champions usage → Smogon join.
+//
+// Champions is the authentic usage-rate source (players earn Pokémon, so access barriers make
+// its popularity differ from Showdown's free-for-all — and it updates daily). We rank the roster
+// by Champions rank. But Champions labels default/cosmetic formes with tags PokeAPI keeps and
+// Smogon drops (e.g. "basculegion-male" → Smogon "basculegion", "tauros-paldea-aqua-breed" →
+// "taurospaldeaaqua"). These aliases (verified against the live Smogon roster) bridge a Champions
+// entry's PokeAPI name to its Smogon species key so the rank join connects for form Pokémon too.
+const CHAMP_ALIAS = {
+  basculegionmale: "basculegion", pyroarmale: "pyroar", meowsticmale: "meowstic",
+  basculegionfemale: "basculegionf",
+  mimikyudisguised: "mimikyu", aegislashshield: "aegislash", palafinzero: "palafin",
+  lycanrocmidday: "lycanroc", morpekofullbelly: "morpeko",
+  mausholdfamilyoffour: "maushold", gourgeistaverage: "gourgeist",
+  // Champions' "Floette" is the mega-capable Eternal forme (Smogon has no plain Floette).
+  floette: "floetteeternal",
+  taurospaldeaaquabreed: "taurospaldeaaqua",
+  taurospaldeablazebreed: "taurospaldeablaze",
+  taurospaldeacombatbreed: "taurospaldeacombat",
+};
+
+// Smogon species key for a poke-web PokeAPI form name (used to join Champions usage → the roster).
+export function smogonKeyForPokeName(pokeName) {
+  const k = normName(pokeName);
+  return CHAMP_ALIAS[k] || k;
+}
