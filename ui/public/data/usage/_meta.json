@@ -1,9 +1,11 @@
 {
   "source": "championsbattledata.com",
-  "data_version": "20260630095621292",
-  "fetched_at": "2026-06-30T09:56:21.292Z",
+  "data_version": "20260718202417168",
+  "fetched_at": "2026-07-18T20:24:17.168Z",
   "pokemon_count": 235,
-  "unmapped": [],
+  "unmapped": [
+    "fan-rotom"
+  ],
   "fully_failed": [],
   "failed_requests": []
 }
