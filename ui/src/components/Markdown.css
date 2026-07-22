@@ -1,0 +1,27 @@
+/* Styling for the coach's rendered Markdown. Tight vertical rhythm so it reads
+   well inside the AI-analysis card and chat bubbles. */
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+
+.md-h { font-weight: 800; line-height: 1.25; margin: 12px 0 5px; color: #1f2430; }
+.md-h1 { font-size: 1.02rem; }
+.md-h2 { font-size: 0.95rem; }
+.md-h3 { font-size: 0.88rem; }
+.md-h4 { font-size: 0.84rem; color: #48506a; text-transform: uppercase; letter-spacing: 0.03em; }
+
+.md-p { margin: 6px 0; }
+
+.md-ul, .md-ol { margin: 6px 0; padding-left: 20px; }
+.md-ul { list-style: disc; }
+.md-ol { list-style: decimal; }
+.md-ul li, .md-ol li { margin: 3px 0; }
+
+.md strong { font-weight: 800; color: #1f2430; }
+.md em { font-style: italic; }
+.md code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  background: rgba(0, 0, 0, 0.06);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
