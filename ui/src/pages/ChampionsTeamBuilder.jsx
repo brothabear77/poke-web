@@ -863,15 +863,18 @@ function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects
   // ranks candidate opening pairs (popularity ≠ success). Only pairs with enough games.
   const pairData = replayData?.[format]?.pairs;
   if (pairData && team.length >= 2) {
+    // Shrink win rate toward 50% by sample size so a small-sample fluke (e.g. 5-0) can't
+    // outrank a robustly-sampled pair, and require a real sample before recommending at all.
+    const adj = (wr, n) => (wr * n + 0.5 * 15) / (n + 15);
     const rows = [];
     for (let i = 0; i < team.length; i++) for (let j = i + 1; j < team.length; j++) {
       const pd = pairData[[team[i].id, team[j].id].sort().join("|")];
-      if (pd && pd.n >= 6) rows.push({ a: team[i].name.replace(/-/g, " "), b: team[j].name.replace(/-/g, " "), winrate: pd.winrate, n: pd.n });
+      if (pd && pd.n >= 15) rows.push({ a: team[i].name.replace(/-/g, " "), b: team[j].name.replace(/-/g, " "), winrate: pd.winrate, n: pd.n, score: adj(pd.winrate, pd.n) });
     }
     if (rows.length) {
-      rows.sort((x, y) => y.winrate - x.winrate);
+      rows.sort((x, y) => y.score - x.score);
       lines.push("");
-      lines.push("LEAD-PAIR SUCCESS (real games, rating-weighted — win rate when THIS pair of your Pokémon is led together; rank opening plays by this. POPULAR ≠ BEST: prefer higher win rate, weighing sample size n):");
+      lines.push("LEAD-PAIR SUCCESS (real games, rating-weighted — win rate when THIS pair of your Pokémon is led together, ordered best-first by a sample-size-adjusted rank so flukes don't top the list. POPULAR ≠ BEST):");
       for (const r of rows) lines.push(`  - ${r.a} + ${r.b}: ${Math.round(r.winrate * 100)}% win rate (n=${r.n})`);
     }
   }
