@@ -11,6 +11,9 @@ let indexCache = null;      // array of { key, name, num, types, bst, isMega, me
 let indexPromise = null;
 const fileCache = new Map(); // key -> full species record
 
+let replayCache = null;      // replay-derived openings: { Doubles:{key:{...}}, Singles:{...} }
+let replayPromise = null;
+
 export function useSmogonIndex() {
   const [index, setIndex] = useState(indexCache);
   const [loading, setLoading] = useState(!indexCache);
@@ -28,6 +31,25 @@ export function useSmogonIndex() {
   }, []);
 
   return { index: index || [], loading };
+}
+
+// Replay-derived opening data (leads / turn-1 plays / lead partners), loaded once. Returns
+// null until it arrives or if unavailable, so the coach degrades gracefully without it.
+export function useReplayData() {
+  const [data, setData] = useState(replayCache);
+
+  useEffect(() => {
+    if (replayCache) { setData(replayCache); return; }
+    let cancelled = false;
+    replayPromise = replayPromise || fetch(`${SMOGON_DATA_BASE}/replays.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { replayCache = d || null; return replayCache; })
+      .catch(() => { replayCache = null; return null; });
+    replayPromise.then((d) => { if (!cancelled) setData(d); });
+    return () => { cancelled = true; };
+  }, []);
+
+  return data;
 }
 
 export function useSmogonFiles(keys) {

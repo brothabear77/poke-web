@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useData } from "../hooks/useData";
 import { useUsageFiles } from "../hooks/useUsageFiles";
-import { useSmogonIndex, useSmogonFiles } from "../hooks/useSmogonFiles";
+import { useSmogonIndex, useSmogonFiles, useReplayData } from "../hooks/useSmogonFiles";
 import { pokeIdByName, spriteId, smogonKeyForPokeName } from "../utils/smogonRoster";
 import { buildChart } from "../utils/typeChart";
 import { analyzeTeam } from "../utils/teamSuggest";
@@ -14,6 +14,7 @@ import {
   movesByName,
 } from "../utils/championsStrategy";
 import { memberTechNotes } from "../utils/mechanicsAnnotations";
+import Markdown from "../components/Markdown";
 import { computeThreats } from "../utils/threatAnalysis";
 import { retrieve, synthesizeTeamQuery } from "../utils/knowledgeRetrieval";
 import { logger } from "../utils/logger";
@@ -58,6 +59,7 @@ export default function ChampionsTeamBuilder() {
   // and several Champions-original megas don't exist in the base games at all).
   // Champions' own site is a fresher (daily vs. Smogon's monthly) usage-rank overlay.
   const { index: smogonIndex, loading: smogonLoading } = useSmogonIndex();
+  const replayData = useReplayData();
   const { data: allPokemon, loading: indexLoading } = useData("/data/pokemon-index.json");
   const { data: champUsageIndex } = useData("/data/usage/_index.json");
   const { data: movesIndex } = useData("/data/moves-index.json");
@@ -73,6 +75,9 @@ export default function ChampionsTeamBuilder() {
   const [leavingIds, setLeavingIds] = useState(new Set());
   const [rosterSearch, setRosterSearch] = useState("");
   const [rosterPage, setRosterPage] = useState(1);
+  // Which matchup chip's name is revealed — single-open across all chips (tap another to switch).
+  const [openChip, setOpenChip] = useState(null);
+  const toggleChip = (id) => setOpenChip((cur) => (cur === id ? null : id));
 
   useEffect(() => { localStorage.setItem("champions-team", JSON.stringify(teamIds)); }, [teamIds]);
   useEffect(() => { localStorage.setItem("champions-builds", JSON.stringify(buildsStore)); }, [buildsStore]);
@@ -171,6 +176,13 @@ export default function ChampionsTeamBuilder() {
   const byId = useMemo(() => {
     const m = new Map();
     for (const p of championsPokemon) m.set(p.id, p);
+    return m;
+  }, [championsPokemon]);
+
+  // Smogon species key → sprite id, for rendering checks/counters as sprites.
+  const spriteByKey = useMemo(() => {
+    const m = new Map();
+    for (const p of championsPokemon) m.set(p.id, p.spriteId);
     return m;
   }, [championsPokemon]);
 
@@ -407,6 +419,9 @@ export default function ChampionsTeamBuilder() {
             build={currentBuilds.get(expandedId)}
             moveMap={moveMap}
             onChange={(patch) => updateBuild(expandedId, patch)}
+            spriteByKey={spriteByKey}
+            openChip={openChip}
+            onToggleChip={toggleChip}
           />
         )}
       </div>
@@ -484,16 +499,20 @@ export default function ChampionsTeamBuilder() {
                   <div key={m.id} className="ctb-checks__row">
                     <span className="ctb-checks__name">{m.name}</span>
                     {m.checkedBy.length > 0 && (
-                      <span className="ctb-checks__line">
+                      <div className="ctb-checks__line">
                         <span className="ctb-checks__dir ctb-checks__dir--bad">Countered by</span>
-                        {m.checkedBy.map((c) => `${c.name} (${(c.score * 100).toFixed(0)}%)`).join(", ")}
-                      </span>
+                        <span className="ctb-checks__chips">
+                          {m.checkedBy.map((c) => <MatchupChip key={c.key || c.name} id={`an-${m.id}-bad-${c.key || c.name}`} openId={openChip} onToggle={toggleChip} entry={c} spriteByKey={spriteByKey} variant="bad" />)}
+                        </span>
+                      </div>
                     )}
                     {m.counters.length > 0 && (
-                      <span className="ctb-checks__line">
+                      <div className="ctb-checks__line">
                         <span className="ctb-checks__dir ctb-checks__dir--good">Counters</span>
-                        {m.counters.map((c) => `${c.name} (${(c.score * 100).toFixed(0)}%)`).join(", ")}
-                      </span>
+                        <span className="ctb-checks__chips">
+                          {m.counters.map((c) => <MatchupChip key={c.key || c.name} id={`an-${m.id}-good-${c.key || c.name}`} openId={openChip} onToggle={toggleChip} entry={c} spriteByKey={spriteByKey} variant="good" />)}
+                        </span>
+                      </div>
                     )}
                   </div>
                 ))}
@@ -515,6 +534,8 @@ export default function ChampionsTeamBuilder() {
         metaThreats={metaThreats}
         threats={threats}
         empiricalMatchups={empiricalMatchups}
+        replayData={replayData}
+        byId={byId}
         knowledgeEmbeddings={knowledgeEmbeddings}
       />
 
@@ -591,7 +612,39 @@ function Field({ label, children }) {
   );
 }
 
-function MemberEditor({ pokemon, usage, champUsage, format, build, moveMap, onChange }) {
+// A checks/counters entry rendered as a sprite + win-rate pill. Falls back to the
+// name if we can't resolve a sprite for the key. `variant`: "bad" = beats this mon,
+// "good" = this mon beats it.
+function MatchupChip({ entry, spriteByKey, variant, id, openId, onToggle }) {
+  // Name hidden by default; revealed on hover (desktop) or tap-toggle (mobile).
+  // Open state is shared (single-open): tapping another chip closes this one.
+  const spId = spriteByKey?.get(entry.key);
+  const pct = `${(entry.score * 100).toFixed(0)}%`;
+  const label = entry.name.replace(/-/g, " ");
+  const revealed = openId === id;
+  return (
+    <span
+      className={`ctb-mchip ctb-mchip--${variant}${revealed ? " is-revealed" : ""}`}
+      onClick={() => onToggle(id)}
+    >
+      {spId != null ? (
+        <img
+          className="ctb-mchip__sprite"
+          src={assetUrl(`/sprites/pokemon/${spId}.png`)}
+          onError={(e) => { if (!e.target.src.startsWith("http")) e.target.src = remoteSprite(spId); }}
+          alt={label}
+          loading="lazy"
+        />
+      ) : (
+        <span className="ctb-mchip__name">{label}</span>
+      )}
+      <span className="ctb-mchip__pct">{pct}</span>
+      {spId != null && <span className="ctb-mchip__tip" aria-hidden="true">{label}</span>}
+    </span>
+  );
+}
+
+function MemberEditor({ pokemon, usage, champUsage, format, build, moveMap, onChange, spriteByKey, openChip, onToggleChip }) {
   if (!build || (!usage && !champUsage)) return <div className="ctb-editor ctb-editor--loading">Loading build…</div>;
   const b = getBuild(usage, format, champUsage);
   const notes = memberTechNotes(pokemon, build, moveMap);
@@ -690,7 +743,7 @@ function MemberEditor({ pokemon, usage, champUsage, format, build, moveMap, onCh
               <span className="ctb-field__label">Countered by (Smogon)</span>
               <div className="ctb-editor__checks-list">
                 {b.checks.slice(0, 6).map((c) => (
-                  <span key={c.key || c.name} className="ctb-check-pill ctb-check-pill--bad">{c.name} <b>{(c.score * 100).toFixed(0)}%</b></span>
+                  <MatchupChip key={c.key || c.name} id={`ed-${pokemon.id}-bad-${c.key || c.name}`} openId={openChip} onToggle={onToggleChip} entry={c} spriteByKey={spriteByKey} variant="bad" />
                 ))}
               </div>
             </div>
@@ -700,7 +753,7 @@ function MemberEditor({ pokemon, usage, champUsage, format, build, moveMap, onCh
               <span className="ctb-field__label">Counters (Smogon)</span>
               <div className="ctb-editor__checks-list">
                 {b.counters.slice(0, 6).map((c) => (
-                  <span key={c.key || c.name} className="ctb-check-pill ctb-check-pill--good">{c.name} <b>{(c.score * 100).toFixed(0)}%</b></span>
+                  <MatchupChip key={c.key || c.name} id={`ed-${pokemon.id}-good-${c.key || c.name}`} openId={openChip} onToggle={onToggleChip} entry={c} spriteByKey={spriteByKey} variant="good" />
                 ))}
               </div>
             </div>
@@ -727,11 +780,16 @@ function MemberEditor({ pokemon, usage, champUsage, format, build, moveMap, onCh
 
 // --- Coach panel -----------------------------------------------------------
 
+// Nature → Speed effect (fixed game data), so the grounding can give an effective-speed
+// estimate the coach can order turns around without us shipping the full nature table.
+const SPE_UP = new Set(["Jolly", "Timid", "Naive", "Hasty"]);
+const SPE_DOWN = new Set(["Brave", "Relaxed", "Quiet", "Sassy"]);
+
 // Assemble the grounding for the LLM. Crucially this includes the *effect text*
 // of each ability / move / item straight from the data indexes, so the model can
 // reason about how the mechanics work and how they interact — and so a future
 // season's new mechanics are covered automatically (no hardcoding).
-function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, knowledgeChunks) {
+function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, replayData, byId, knowledgeChunks) {
   if (report.empty) return "The team is empty.";
   const bringCount = format === "Doubles" ? 4 : 3;
   const roleById = new Map(report.roles.map((r) => [r.id, r.role]));
@@ -760,6 +818,62 @@ function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects
       }
     }
     if (b.nature) lines.push(`    Nature ${b.nature}; EVs ${formatEvs(b.evs)}`);
+    const spe = p.stats?.speed;
+    if (spe != null) {
+      const evSpe = b.evs?.speed || 0;
+      const mult = SPE_UP.has(b.nature) ? 1.1 : SPE_DOWN.has(b.nature) ? 0.9 : 1;
+      const eff = Math.round((spe + evSpe * 1.5) * mult);
+      const tag = mult > 1 ? ", speed-boosting nature" : mult < 1 ? ", speed-lowering nature" : "";
+      lines.push(`    Speed — base ${spe}${evSpe ? `, ${evSpe} Spe EV` : ""}${tag} → ~${eff} effective (use for turn order; higher moves first, barring priority/Trick Room)`);
+    }
+    // Curated, deterministic mechanic roles for THIS build (redirection/speed-control/
+    // priority/defensive/…). These are authoritative — a role a member lacks won't appear.
+    const tech = memberTechNotes(p, b, moveMap);
+    if (tech.length) {
+      lines.push("    Mechanic roles (curated & accurate — trust these exact roles; a capability not listed here is one this Pokémon does NOT have):");
+      for (const t of tech) lines.push(`      · [${t.tag}] ${t.text}`);
+    }
+    // Real-game opening behavior from Showdown replays (same meta, rating-weighted). This is
+    // how this Pokémon is ACTUALLY led + played turn 1 — ground the opening plan in it.
+    const rd = replayData?.[format]?.species?.[p.id];
+    if (rd && rd.broughtN >= 8) {
+      const led = Math.round(rd.leadRate * 100);
+      const wr = rd.leadWinrate ? `, wins ${Math.round(rd.leadWinrate * 100)}% when it leads` : "";
+      lines.push(`    Real-game openings (Showdown replays, n=${rd.broughtN}): led ${led}% of the games it's brought${wr}.`);
+      if (rd.turn1?.length) lines.push(`      Typical turn-1 move: ${rd.turn1.slice(0, 4).map((t) => `${t.move} ${t.pct}%`).join(", ")}.`);
+      if (rd.partners?.length) {
+        const names = rd.partners.slice(0, 3).map((x) => (byId?.get(x.key)?.name || x.key).replace(/-/g, " ") + ` ${x.pct}%`);
+        lines.push(`      Usual lead partners: ${names.join(", ")}.`);
+      }
+    }
+  }
+  const megas = team.filter((p) => p.isMega);
+  if (megas.length > 1) {
+    lines.push("");
+    lines.push(`ONE-MEGA CONSTRAINT: this team has ${megas.length} Mega formes (${megas.map((m) => m.name.replace(/-/g, " ")).join(", ")}). Only ONE can Mega Evolve per battle — the game plan must pick exactly one; the rest play as their base forme that game.`);
+  }
+  // If the replay openings are still partly from the previous regulation, say so — the coach
+  // should treat opening suggestions as provisional until this season's sample builds up.
+  const prov = replayData?.[format]?.provenance;
+  if (prov?.priorReg && prov.priorShare >= 0.15) {
+    lines.push("");
+    lines.push(`NOTE — the replay-derived openings, lead rates, and lead pairs are ${Math.round(prov.priorShare * 100)}% from the PREVIOUS regulation (${prov.priorReg}); this season's sample is still building, so present those opening suggestions as provisional.`);
+  }
+  // Lead-PAIR success from replays: real win rate when two of your Pokémon are led together —
+  // ranks candidate opening pairs (popularity ≠ success). Only pairs with enough games.
+  const pairData = replayData?.[format]?.pairs;
+  if (pairData && team.length >= 2) {
+    const rows = [];
+    for (let i = 0; i < team.length; i++) for (let j = i + 1; j < team.length; j++) {
+      const pd = pairData[[team[i].id, team[j].id].sort().join("|")];
+      if (pd && pd.n >= 6) rows.push({ a: team[i].name.replace(/-/g, " "), b: team[j].name.replace(/-/g, " "), winrate: pd.winrate, n: pd.n });
+    }
+    if (rows.length) {
+      rows.sort((x, y) => y.winrate - x.winrate);
+      lines.push("");
+      lines.push("LEAD-PAIR SUCCESS (real games, rating-weighted — win rate when THIS pair of your Pokémon is led together; rank opening plays by this. POPULAR ≠ BEST: prefer higher win rate, weighing sample size n):");
+      for (const r of rows) lines.push(`  - ${r.a} + ${r.b}: ${Math.round(r.winrate * 100)}% win rate (n=${r.n})`);
+    }
   }
   if (report.teamTech?.length) {
     lines.push("");
@@ -800,18 +914,28 @@ function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects
 }
 
 const BREAKDOWN_PROMPT =
-  "Give me a strategic breakdown built around which Pokémon you'd actually bring together. " +
-  "Identify the best subset(s) to bring, how those specific Pokémon interact and cover for each other, " +
-  "and each subset's game plan and win condition. For threats, use ONLY the computed super-effective list " +
-  "and the empirical checks/counters — name the specific Pokémon (and move, where given) that threatens " +
-  "each subset. Finish with the top one or two ways to improve the team.";
+  "Give me a strategic breakdown built around which Pokémon you'd actually bring together. Cover, in order:\n" +
+  "• BEST BRING: the single strongest subset to bring, and how those specific Pokémon interact and cover for each other.\n" +
+  "• POTENTIAL OPENING PLAYS: present the strongest openings as 2–3 separate labeled options. In Doubles each option " +
+  "is a two-Pokémon LEAD PAIR (format \"A / B:\" then a brief 2-turn plan); in Singles each is a single lead. RANK them " +
+  "using the LEAD-PAIR SUCCESS data (real win rates) where available — the most POPULAR pair is NOT always the best, so " +
+  "prefer higher win rate while weighing sample size (n). You may also offer one promising option not in the data if " +
+  "its synergy is clear, but say it's not data-backed. For each option, write turn 1 and turn 2 as concrete lines (with " +
+  "a key if/then read) that respect POSITIONING — only the active Pokémon act, and bringing in a benched mon needs a " +
+  "switch. Ground the lead choice and turn-1 clicks in each member's 'Real-game openings' data (real lead rates + " +
+  "turn-1 plays), and don't mega more than one Pokémon.\n" +
+  "• WIN CONDITION: the primary path to winning and what has to happen for it.\n" +
+  "• THREATS: use ONLY the computed super-effective list and the empirical checks/counters — name the specific " +
+  "Pokémon (and move, where given) that threatens the bring.\n" +
+  "• IMPROVE: the top one or two ways to improve the team.\n" +
+  "Keep it tight and actionable; never invent a type interaction not in the data.";
 
-function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, knowledgeEmbeddings }) {
+function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, replayData, byId, knowledgeEmbeddings }) {
   const [password, setPassword] = useState(() => loadPassword());
   const [loginInput, setLoginInput] = useState("");
   const [loginError, setLoginError] = useState(null);
 
-  const [aiText, setAiText] = useState("");      // auto-generated breakdown
+  const [aiText, setAiText] = useState("");      // auto-generated breakdown (incl. turn-by-turn plan)
   const [aiBusy, setAiBusy] = useState(false);
   const [aiError, setAiError] = useState(null);   // non-auth failures → rule-based stays
 
@@ -834,8 +958,10 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
     const checksSig = (empiricalMatchups || []).map((m) => `${m.id}:${m.checkedBy.length}:${m.counters.length}`).join(",");
     // Re-run once the knowledge embeddings finish loading (placeholder [] -> real vectors).
     const kSig = knowledgeEmbeddings?.length || 0;
-    return `${teamSig}|${format}|${threatSig}|${checksSig}|k${kSig}`;
-  }, [team, currentBuilds, format, report.empty, threats, empiricalMatchups, knowledgeEmbeddings]);
+    // Re-run once replay openings load (null -> data).
+    const rSig = replayData ? "R" : "r";
+    return `${teamSig}|${format}|${threatSig}|${checksSig}|k${kSig}|${rSig}`;
+  }, [team, currentBuilds, format, report.empty, threats, empiricalMatchups, replayData, knowledgeEmbeddings]);
 
   const bringCount = format === "Doubles" ? 4 : 3;
   // AI analysis only makes sense once a full "bring" is selected (4 doubles / 3 singles).
@@ -846,6 +972,17 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
         `concepts. Use it only as background strategy guidance; it is NOT specific to this team and must NOT ` +
         `be used to assert any type-effectiveness, matchup, or immunity fact.\n\n`
       : "";
+    const positioningRule = format === "Doubles"
+      ? `CRITICAL — DOUBLES POSITIONING: exactly TWO of your Pokémon are on the field at a time. Each turn, each ` +
+        `of those two makes ONE choice (a move OR a switch) — so a turn is at most TWO of your actions, and ONLY ` +
+        `the two currently-active Pokémon can act. A benched Pokémon cannot attack until it switches in, and ` +
+        `switching it in spends that slot's action for the turn (it does not also move that turn). Your turn-by-turn ` +
+        `plan MUST track which two Pokémon are active each turn and describe only those two acting — NEVER have ` +
+        `three or four of your Pokémon act in the same turn. Also: a spread move that hits all adjacent Pokémon ` +
+        `(per its effect text, e.g. Earthquake) ALSO damages your own ally in Doubles — account for that.\n\n`
+      : `CRITICAL — SINGLES POSITIONING: exactly ONE of your Pokémon is active at a time; each turn it makes one ` +
+        `choice (a move OR a switch). Only the active Pokémon can act — a benched Pokémon must switch in (spending ` +
+        `the turn) before it can attack. Describe only the active Pokémon acting each turn.\n\n`;
     return (
       `You are a sharp competitive Pokémon team coach for the Pokémon Champions ${format} metagame. ` +
       `Use the data below — which includes how each ability, move, and item actually works — to reason ` +
@@ -861,10 +998,30 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
       `Treat those as the ONLY sources of truth for what threatens or is beaten by this team. When naming a ` +
       `threat or a favorable matchup, cite the specific opposing Pokémon (and move, if from the computed list) ` +
       `— never assert a super-effective, resisted, or immune interaction that is not in the provided data.\n\n` +
+      `CRITICAL — MECHANICS: every move, ability, and item the team runs is listed below WITH its exact in-game ` +
+      `effect. When you describe or recommend what something does, use ONLY that provided effect text — do NOT ` +
+      `attribute an effect a move/ability/item does not have. Read the effect literally: "the user" means the ` +
+      `user alone, not its ally. A move only redirects, protects an ally, boosts/lowers a stat, sets weather/terrain, ` +
+      `changes Speed order, or gains priority if its listed effect text explicitly says so. (E.g. Protect only ` +
+      `shields its own user — it does NOT redirect attacks or cover a teammate; redirection needs Follow Me or Rage ` +
+      `Powder.) Each member also lists curated "Mechanic roles" tags (e.g. [redirection], [speed-control], ` +
+      `[priority], [defensive]) — trust those labels for what a Pokémon can actually do; if a role you want ` +
+      `(e.g. redirection) appears on no member, the team does NOT have it. If a play you're considering needs a ` +
+      `specific effect and no member provides it, state the team lacks it rather than inventing it. A misstated ` +
+      `mechanic is a critical failure.\n\n` +
+      `CRITICAL — ONE MEGA PER BATTLE: at most ONE of your Pokémon may Mega Evolve in a game. If the team lists ` +
+      `more than one Mega forme, the plan must pick exactly ONE to Mega Evolve; the others play as their base ` +
+      `forme and are NOT Mega that game. Never describe two of your Pokémon as Mega-Evolved at the same time.\n\n` +
+      `CRITICAL — MATCHUP ATTRIBUTION: each Pokémon's "is beaten by" list belongs to THAT Pokémon only — never ` +
+      `transfer one member's counters onto another. When the plan reacts to an opposing Pokémon, the member that ` +
+      `reacts must be the one actually threatened by it, and the reaction must actually help that member. Protect ` +
+      `only saves the Pokémon that clicks it, so "answer this threat with Protect" only works when the threatened ` +
+      `Pokémon protects itself — Protecting a different member does nothing for the one under threat.\n\n` +
+      positioningRule +
       knowledgeRule +
       `Be concise, specific, and concrete; prefer a few bullet points. Only use the provided data.\n\n` +
       `TEAM DATA:\n` +
-      buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, knowledgeChunks)
+      buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, replayData, byId, knowledgeChunks)
     );
   }
 
@@ -1051,7 +1208,7 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
           ) : (
             <>
               {aiBusy && !aiText && <p className="ctb-muted">Analyzing your team…</p>}
-              {aiText && <div className="ctb-ai__body">{aiText}</div>}
+              {aiText && <Markdown className="ctb-ai__body" text={aiText} />}
               {aiBusy && aiText && <p className="ctb-muted">Updating…</p>}
               {aiError && <div className="ctb-err">AI unavailable ({aiError}). Showing the rule-based analysis above.</div>}
             </>
@@ -1063,7 +1220,9 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
       {chat.length > 0 && (
         <div className="ctb-chat">
           {chat.map((m, i) => (
-            <div key={i} className={`ctb-msg ctb-msg--${m.role}`}>{m.content}</div>
+            m.role === "assistant"
+              ? <Markdown key={i} className={`ctb-msg ctb-msg--${m.role}`} text={m.content} />
+              : <div key={i} className={`ctb-msg ctb-msg--${m.role}`}>{m.content}</div>
           ))}
           {busy && <div className="ctb-msg ctb-msg--assistant ctb-muted">…thinking</div>}
         </div>
