@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useData } from "../hooks/useData";
 import FitScale from "./FitScale";
 import { assetUrl } from "../utils/assetUrl";
+import { onSpriteError } from "../utils/sprite";
 import "./EvolutionChain.css";
 
 function getTriggerLabel(details) {
@@ -71,7 +72,7 @@ function ChainNode({ node, pokemonIndex, formIndex = 0 }) {
           <Link to={`/pokemon/${id}`}>
             <img
               src={assetUrl(`/sprites/pokemon/${id}.png`)}
-              onError={(e) => { e.target.src = poke?.sprite_front || ""; }}
+              onError={(e) => onSpriteError(e, poke?.sprite_front)}
               alt={speciesName}
               className="evo-sprite"
             />

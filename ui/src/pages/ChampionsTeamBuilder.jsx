@@ -22,6 +22,7 @@ import { coachReport, answerQuestion, COACH_QUESTIONS } from "../utils/teamCoach
 import { loadPassword, savePassword, clearPassword, callCoach, embedQuery } from "../utils/llmClient";
 import TypeBadge from "../components/TypeBadge";
 import { assetUrl } from "../utils/assetUrl";
+import { remoteSprite, onSpriteError } from "../utils/sprite";
 import "./ChampionsTeamBuilder.css";
 
 const MAX_TEAM = 6;
@@ -33,8 +34,6 @@ const STAT_LABELS = [
   ["hp", "HP"], ["attack", "Atk"], ["defense", "Def"],
   ["special-attack", "SpA"], ["special-defense", "SpD"], ["speed", "Spe"],
 ];
-const remoteSprite = (id) =>
-  `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
 const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 const pct1 = (n) => (n == null ? null : `${(n * 100).toFixed(1)}%`);
 
@@ -395,7 +394,7 @@ export default function ChampionsTeamBuilder() {
                 <img
                   className="ctb-slot__sprite"
                   src={assetUrl(`/sprites/pokemon/${p.spriteId}.png`)}
-                  onError={(e) => { if (!e.target.src.startsWith("http")) e.target.src = remoteSprite(p.spriteId); }}
+                  onError={(e) => onSpriteError(e, remoteSprite(p.spriteId))}
                   alt={p.name}
                 />
                 <div className="ctb-slot__name">{p.name.replace(/-/g, " ")}</div>
@@ -442,7 +441,7 @@ export default function ChampionsTeamBuilder() {
                 <img
                   className="ctb-rec__sprite"
                   src={assetUrl(`/sprites/pokemon/${pokemon.spriteId}.png`)}
-                  onError={(e) => { if (!e.target.src.startsWith("http")) e.target.src = remoteSprite(pokemon.spriteId); }}
+                  onError={(e) => onSpriteError(e, remoteSprite(pokemon.spriteId))}
                   alt={pokemon.name}
                   loading="lazy"
                 />
@@ -574,7 +573,7 @@ export default function ChampionsTeamBuilder() {
                 <img
                   className="ctb-rec__sprite"
                   src={assetUrl(`/sprites/pokemon/${p.spriteId}.png`)}
-                  onError={(e) => { if (!e.target.src.startsWith("http")) e.target.src = remoteSprite(p.spriteId); }}
+                  onError={(e) => onSpriteError(e, remoteSprite(p.spriteId))}
                   alt={p.name}
                   loading="lazy"
                 />
@@ -634,7 +633,7 @@ function MatchupChip({ entry, spriteByKey, variant, id, openId, onToggle, value 
         <img
           className="ctb-mchip__sprite"
           src={assetUrl(`/sprites/pokemon/${spId}.png`)}
-          onError={(e) => { if (!e.target.src.startsWith("http")) e.target.src = remoteSprite(spId); }}
+          onError={(e) => onSpriteError(e, remoteSprite(spId))}
           alt={label}
           loading="lazy"
         />

@@ -1,9 +1,7 @@
 import TypeBadge from "./TypeBadge";
 import PokemonInfoBtn from "./PokemonInfoBtn";
 import { assetUrl } from "../utils/assetUrl";
-
-const remoteSprite = (id) =>
-  `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
+import { remoteSprite, onSpriteError } from "../utils/sprite";
 
 export default function TeamSlotCard({ pokemon, onRemove, position, leaving }) {
   // position (1-6) lets CSS override popover direction for edge slots
@@ -21,9 +19,7 @@ export default function TeamSlotCard({ pokemon, onRemove, position, leaving }) {
       <img
         className="tb__slot-sprite"
         src={assetUrl(`/sprites/pokemon/${pokemon.id}.png`)}
-        onError={(e) => {
-          if (!e.target.src.startsWith("http")) e.target.src = remoteSprite(pokemon.id);
-        }}
+        onError={(e) => onSpriteError(e, remoteSprite(pokemon.id))}
         alt={pokemon.name}
       />
       <div className="tb__slot-name">{pokemon.name.replace(/-/g, " ")}</div>

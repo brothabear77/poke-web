@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import TypeBadge from "./TypeBadge";
 import PokemonInfoBtn from "./PokemonInfoBtn";
 import { assetUrl } from "../utils/assetUrl";
+import { onSpriteError } from "../utils/sprite";
 import "./PokemonCard.css";
 
 export default function PokemonCard({ pokemon, onSelect, selected, disabled, showInfo }) {
@@ -16,7 +17,7 @@ export default function PokemonCard({ pokemon, onSelect, selected, disabled, sho
       <img
         className="pokemon-card__sprite"
         src={spriteUrl}
-        onError={(e) => { e.target.src = fallbackUrl || ""; }}
+        onError={(e) => onSpriteError(e, fallbackUrl)}
         alt={name}
         loading="lazy"
       />
