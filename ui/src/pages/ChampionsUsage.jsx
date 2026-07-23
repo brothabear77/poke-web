@@ -3,7 +3,8 @@ import { useData } from "../hooks/useData";
 import TypeBadge from "../components/TypeBadge";
 import { assetUrl } from "../utils/assetUrl";
 import { remoteSprite, onSpriteError } from "../utils/sprite";
-import { formatEvs } from "../utils/championsStrategy";
+import { formatEvs, formatReg } from "../utils/championsStrategy";
+import { useSmogonMeta } from "../hooks/useSmogonFiles";
 import "./ChampionsUsage.css";
 
 function UsageSection({ title, items, showPct = true }) {
@@ -101,6 +102,7 @@ export default function ChampionsUsage() {
   const [selectedId, setSelectedId] = useState(null);
   const [format,     setFormat]     = useState("Doubles");
   const [mobileView, setMobileView] = useState("list");
+  const smogonMeta = useSmogonMeta();
 
   const { data: usageData, loading: usageLoading } = useData(
     selectedId ? `/data/usage/${selectedId}.json` : null
@@ -150,7 +152,10 @@ export default function ChampionsUsage() {
       {/* List panel */}
       <div className={`cu__list${mobileView === "detail" ? " cu__list--hidden" : ""}`}>
         <div className="cu__list-header">
-          <h1 className="cu__title">Champions Usage</h1>
+          <h1 className="cu__title">
+            Champions Usage
+            {formatReg(smogonMeta?.regulation) && ` (${formatReg(smogonMeta.regulation)})`}
+          </h1>
           <div className="cu__search-wrap">
             <input
               className="cu__search"

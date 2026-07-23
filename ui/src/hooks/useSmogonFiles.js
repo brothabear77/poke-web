@@ -14,6 +14,9 @@ const fileCache = new Map(); // key -> full species record
 let replayCache = null;      // replay-derived openings: { Doubles:{key:{...}}, Singles:{...} }
 let replayPromise = null;
 
+let metaCache = null;        // { source, month, regulation, formats, cutoff, battles, ... }
+let metaPromise = null;
+
 export function useSmogonIndex() {
   const [index, setIndex] = useState(indexCache);
   const [loading, setLoading] = useState(!indexCache);
@@ -46,6 +49,25 @@ export function useReplayData() {
       .then((d) => { replayCache = d || null; return replayCache; })
       .catch(() => { replayCache = null; return null; });
     replayPromise.then((d) => { if (!cancelled) setData(d); });
+    return () => { cancelled = true; };
+  }, []);
+
+  return data;
+}
+
+// Feed metadata (resolved regulation, month, cutoff, battle counts), loaded once. Returns
+// null until it arrives or if unavailable — callers should treat the regulation as optional.
+export function useSmogonMeta() {
+  const [data, setData] = useState(metaCache);
+
+  useEffect(() => {
+    if (metaCache) { setData(metaCache); return; }
+    let cancelled = false;
+    metaPromise = metaPromise || fetch(`${SMOGON_DATA_BASE}/_meta.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { metaCache = d || null; return metaCache; })
+      .catch(() => { metaCache = null; return null; });
+    metaPromise.then((d) => { if (!cancelled) setData(d); });
     return () => { cancelled = true; };
   }, []);
 

@@ -27,6 +27,14 @@ export function formatEvs(evs) {
     .join(" / ") || "No EVs";
 }
 
+// Smogon's raw regulation code ("mb") -> the game's display form ("Reg M-B"). Shared by the
+// team builder and usage pages (both show it next to their title, from useSmogonMeta()).
+export function formatReg(reg) {
+  if (!reg) return null;
+  const u = reg.toUpperCase();
+  return `Reg ${u.length > 1 ? `${u.slice(0, -1)}-${u.slice(-1)}` : u}`;
+}
+
 // Normalize a Smogon {name, pct} entry to the Champions-style {name, percentage} shape
 // the rest of this file (and MemberEditor) already expects.
 const rankedFrom = (list) => (list || []).map((e) => ({ name: e.name, percentage: e.pct }));

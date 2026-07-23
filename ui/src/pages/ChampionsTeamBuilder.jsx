@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useData } from "../hooks/useData";
 import { useUsageFiles } from "../hooks/useUsageFiles";
-import { useSmogonIndex, useSmogonFiles, useReplayData } from "../hooks/useSmogonFiles";
+import { useSmogonIndex, useSmogonFiles, useReplayData, useSmogonMeta } from "../hooks/useSmogonFiles";
 import { pokeIdByName, spriteId, smogonKeyForPokeName } from "../utils/smogonRoster";
 import { buildChart } from "../utils/typeChart";
 import { analyzeTeam } from "../utils/teamSuggest";
@@ -11,6 +11,7 @@ import {
   classifyRole,
   scoreTeammate,
   formatEvs,
+  formatReg,
   movesByName,
 } from "../utils/championsStrategy";
 import { memberTechNotes } from "../utils/mechanicsAnnotations";
@@ -59,6 +60,7 @@ export default function ChampionsTeamBuilder() {
   // Champions' own site is a fresher (daily vs. Smogon's monthly) usage-rank overlay.
   const { index: smogonIndex, loading: smogonLoading } = useSmogonIndex();
   const replayData = useReplayData();
+  const smogonMeta = useSmogonMeta();
   const { data: allPokemon, loading: indexLoading } = useData("/data/pokemon-index.json");
   const { data: champUsageIndex } = useData("/data/usage/_index.json");
   const { data: movesIndex } = useData("/data/moves-index.json");
@@ -349,7 +351,10 @@ export default function ChampionsTeamBuilder() {
   return (
     <div className="ctb-page">
       <div className="ctb-head">
-        <h1 className="ctb-h1">Champions Team Builder</h1>
+        <h1 className="ctb-h1">
+          Champions Team Builder
+          {formatReg(smogonMeta?.regulation) && ` (${formatReg(smogonMeta.regulation)})`}
+        </h1>
         <div className="ctb-fmt">
           {FORMATS.map((f) => (
             <button
