@@ -6,6 +6,7 @@ import StatBar from "../components/StatBar";
 import EvolutionChain from "../components/EvolutionChain";
 import FitScale from "../components/FitScale";
 import { assetUrl } from "../utils/assetUrl";
+import { onSpriteError } from "../utils/sprite";
 import { buildChart, defenseMultiplier, ALL_TYPES } from "../utils/typeChart";
 import "./PokemonDetail.css";
 
@@ -69,7 +70,7 @@ export default function PokemonDetail() {
           <img
             className="detail__artwork"
             src={artworkUrl}
-            onError={(e) => { e.target.src = spriteUrl; }}
+            onError={(e) => onSpriteError(e, spriteUrl)}
             alt={poke.name}
           />
         </div>

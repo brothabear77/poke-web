@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useData } from "../hooks/useData";
 import TypeBadge from "../components/TypeBadge";
 import { assetUrl } from "../utils/assetUrl";
+import { remoteSprite, onSpriteError } from "../utils/sprite";
 import { formatEvs } from "../utils/championsStrategy";
 import "./ChampionsUsage.css";
 
@@ -173,6 +174,7 @@ export default function ChampionsUsage() {
               <img
                 className="cu__pokemon-sprite"
                 src={assetUrl(`/sprites/pokemon/${p.id}.png`)}
+                onError={(e) => onSpriteError(e, remoteSprite(p.id))}
                 alt={p.name}
                 loading="lazy"
               />
@@ -201,6 +203,7 @@ export default function ChampionsUsage() {
                   <img
                     className="cu__detail-sprite"
                     src={assetUrl(`/sprites/pokemon/${selectedId}.png`)}
+                    onError={(e) => onSpriteError(e, remoteSprite(selectedId))}
                     alt={selectedPokemon.name}
                   />
                   <div className="cu__detail-meta">
