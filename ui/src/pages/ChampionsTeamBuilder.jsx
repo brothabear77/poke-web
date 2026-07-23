@@ -14,7 +14,7 @@ import {
   movesByName,
 } from "../utils/championsStrategy";
 import { memberTechNotes } from "../utils/mechanicsAnnotations";
-import Markdown from "../components/Markdown";
+import TypedMarkdown from "../components/TypedMarkdown";
 import { computeThreats } from "../utils/threatAnalysis";
 import { retrieve, synthesizeTeamQuery } from "../utils/knowledgeRetrieval";
 import { logger } from "../utils/logger";
@@ -536,6 +536,9 @@ export default function ChampionsTeamBuilder() {
         empiricalMatchups={empiricalMatchups}
         replayData={replayData}
         byId={byId}
+        spriteByKey={spriteByKey}
+        openChip={openChip}
+        onToggleChip={toggleChip}
         knowledgeEmbeddings={knowledgeEmbeddings}
       />
 
@@ -615,11 +618,11 @@ function Field({ label, children }) {
 // A checks/counters entry rendered as a sprite + win-rate pill. Falls back to the
 // name if we can't resolve a sprite for the key. `variant`: "bad" = beats this mon,
 // "good" = this mon beats it.
-function MatchupChip({ entry, spriteByKey, variant, id, openId, onToggle }) {
+function MatchupChip({ entry, spriteByKey, variant, id, openId, onToggle, value }) {
   // Name hidden by default; revealed on hover (desktop) or tap-toggle (mobile).
   // Open state is shared (single-open): tapping another chip closes this one.
   const spId = spriteByKey?.get(entry.key);
-  const pct = `${(entry.score * 100).toFixed(0)}%`;
+  const pct = value ?? `${(entry.score * 100).toFixed(0)}%`;
   const label = entry.name.replace(/-/g, " ");
   const revealed = openId === id;
   return (
@@ -933,7 +936,7 @@ const BREAKDOWN_PROMPT =
   "• IMPROVE: the top one or two ways to improve the team.\n" +
   "Keep it tight and actionable; never invent a type interaction not in the data.";
 
-function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, replayData, byId, knowledgeEmbeddings }) {
+function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, replayData, byId, spriteByKey, openChip, onToggleChip, knowledgeEmbeddings }) {
   const [password, setPassword] = useState(() => loadPassword());
   const [loginInput, setLoginInput] = useState("");
   const [loginError, setLoginError] = useState(null);
@@ -948,6 +951,25 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
   const [error, setError] = useState(null);
 
   const authed = !!password;
+
+  // Meta attackers the team is weak to: aggregate each member's empirical "beaten by" list
+  // into the opposing Pokémon that beat the most of the team (a concrete, named weakness the
+  // bare type list can't express). Only mons that beat 2+ members count as team-level threats.
+  const teamThreats = useMemo(() => {
+    const agg = new Map();
+    for (const m of empiricalMatchups || []) {
+      for (const c of m.checkedBy || []) {
+        let e = agg.get(c.key);
+        if (!e) { e = { key: c.key, name: c.name, members: 0, scoreSum: 0 }; agg.set(c.key, e); }
+        e.members += 1; e.scoreSum += c.score;
+      }
+    }
+    return [...agg.values()]
+      .map((e) => ({ key: e.key, name: e.name, count: e.members, avg: e.scoreSum / e.members }))
+      .filter((e) => e.count >= 2)
+      .sort((a, b) => b.count - a.count || b.avg - a.avg)
+      .slice(0, 6);
+  }, [empiricalMatchups]);
 
   // Signature of everything that feeds buildFacts — drives auto re-analysis.
   const sig = useMemo(() => {
@@ -1161,6 +1183,25 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
               {report.poorAgainst.length ? report.poorAgainst.map((t) => <TypeBadge key={t} type={t} small />) : <span className="ctb-muted"> nothing shared</span>}
             </div>
           </div>
+          {teamThreats.length > 0 && (
+            <div className="ctb-threats">
+              <div className="ctb-threats__label">Weak to meta attackers <span className="ctb-muted">(number = how many of your team it beats)</span></div>
+              <div className="ctb-threats__chips">
+                {teamThreats.map((t) => (
+                  <MatchupChip
+                    key={t.key}
+                    id={`th-${t.key}`}
+                    openId={openChip}
+                    onToggle={onToggleChip}
+                    entry={{ key: t.key, name: t.name, score: t.avg }}
+                    spriteByKey={spriteByKey}
+                    variant="bad"
+                    value={String(t.count)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1211,7 +1252,7 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
           ) : (
             <>
               {aiBusy && !aiText && <p className="ctb-muted">Analyzing your team…</p>}
-              {aiText && <Markdown className="ctb-ai__body" text={aiText} />}
+              {aiText && <TypedMarkdown className="ctb-ai__body" text={aiText} />}
               {aiBusy && aiText && <p className="ctb-muted">Updating…</p>}
               {aiError && <div className="ctb-err">AI unavailable ({aiError}). Showing the rule-based analysis above.</div>}
             </>
@@ -1224,7 +1265,7 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
         <div className="ctb-chat">
           {chat.map((m, i) => (
             m.role === "assistant"
-              ? <Markdown key={i} className={`ctb-msg ctb-msg--${m.role}`} text={m.content} />
+              ? <TypedMarkdown key={i} className={`ctb-msg ctb-msg--${m.role}`} text={m.content} animate={i === chat.length - 1} />
               : <div key={i} className={`ctb-msg ctb-msg--${m.role}`}>{m.content}</div>
           ))}
           {busy && <div className="ctb-msg ctb-msg--assistant ctb-muted">…thinking</div>}

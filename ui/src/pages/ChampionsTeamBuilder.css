@@ -373,15 +373,19 @@
 
 /* Empirical matchups (checks & counters) */
 .ctb-checks { margin-top: 16px; padding-top: 14px; border-top: 1px solid #eee; }
-.ctb-checks__grid { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
-.ctb-checks__row { display: flex; flex-direction: column; gap: 2px; font-size: 0.78rem; line-height: 1.4; }
+.ctb-checks__grid { display: grid; grid-template-columns: 1fr 1fr; row-gap: 12px; margin-top: 6px; }
+.ctb-checks__row { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; font-size: 0.78rem; line-height: 1.4; padding: 0 12px 12px; }
+/* Vertical divider between the two columns */
+.ctb-checks__row:nth-child(odd) { border-right: 1px solid #eee; }
+/* Horizontal dividers between rows (skip the bottom row) */
+.ctb-checks__row:not(:nth-last-child(-n+2)) { border-bottom: 1px solid #eee; }
 .ctb-checks__name { font-weight: 800; color: #333; }
-.ctb-checks__line { display: flex; align-items: flex-start; gap: 6px; padding-left: 10px; }
-.ctb-checks__dir { flex-shrink: 0; font-weight: 700; padding-top: 5px; }
+.ctb-checks__line { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.ctb-checks__dir { flex-shrink: 0; font-weight: 700; }
 .ctb-checks__dir::after { content: ":"; }
 .ctb-checks__dir--bad { color: #CE0022; }
 .ctb-checks__dir--good { color: #2e9e5b; }
-.ctb-checks__chips { display: flex; flex-wrap: wrap; width: stretch; justify-content: space-evenly;}
+.ctb-checks__chips { display: flex; flex-wrap: wrap; width: 100%; justify-content: space-around; }
 .ctb-editor__checks { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .ctb-editor__mrow { display: flex; flex-direction: column; gap: 4px; }
 .ctb-editor__checks-list { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -475,6 +479,11 @@
 .ctb-matchups > div { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .ctb-matchups__label { font-size: 0.78rem; font-weight: 700; color: #555; }
 
+/* Weak-to meta attackers (named threats, not just types) */
+.ctb-threats { margin-top: 12px; padding-top: 12px; border-top: 1px solid #eee; }
+.ctb-threats__label { font-size: 0.8rem; font-weight: 700; color: #444; margin-bottom: 7px; }
+.ctb-threats__chips { display: flex; flex-wrap: wrap; justify-content: space-around; padding: 0 15%}
+
 .ctb-qbtns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .ctb-qbtn {
   padding: 6px 12px;
@@ -546,6 +555,11 @@
   .ctb-slots { grid-template-columns: repeat(3, 1fr); }
   .ctb-analysis { grid-template-columns: 1fr; }
   .ctb-report__cols { grid-template-columns: 1fr; }
+  /* Empirical matchups: collapse the 3×2 grid to a single column */
+  .ctb-checks__grid { grid-template-columns: 1fr; }
+  .ctb-checks__row:nth-child(odd) { border-right: none; }
+  .ctb-checks__row:not(:nth-last-child(-n+2)) { border-bottom: none; }
+  .ctb-checks__row:not(:last-child) { border-bottom: 1px solid #eee; }
 }
 @media (max-width: 480px) {
   .ctb-slots { grid-template-columns: repeat(2, 1fr); }
