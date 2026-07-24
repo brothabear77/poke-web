@@ -17,6 +17,7 @@ import {
 import { memberTechNotes } from "../utils/mechanicsAnnotations";
 import TypedMarkdown from "../components/TypedMarkdown";
 import { computeThreats } from "../utils/threatAnalysis";
+import { computeCalcFacts } from "../utils/damageCalc";
 import { retrieve, synthesizeTeamQuery } from "../utils/knowledgeRetrieval";
 import { logger } from "../utils/logger";
 import { coachReport, answerQuestion, COACH_QUESTIONS } from "../utils/teamCoach";
@@ -346,6 +347,25 @@ export default function ChampionsTeamBuilder() {
     }).filter((m) => m.checkedBy.length || m.counters.length);
   }, [team, smogonById, format]);
 
+  // Meta attackers the team is weak to: aggregate each member's empirical "beaten by" list
+  // into the opposing Pokémon that beat the most of the team (a concrete, named weakness the
+  // bare type list can't express). Only mons that beat 2+ members count as team-level threats.
+  const teamThreats = useMemo(() => {
+    const agg = new Map();
+    for (const m of empiricalMatchups || []) {
+      for (const c of m.checkedBy || []) {
+        let e = agg.get(c.key);
+        if (!e) { e = { key: c.key, name: c.name, members: 0, scoreSum: 0 }; agg.set(c.key, e); }
+        e.members += 1; e.scoreSum += c.score;
+      }
+    }
+    return [...agg.values()]
+      .map((e) => ({ key: e.key, name: e.name, count: e.members, avg: e.scoreSum / e.members }))
+      .filter((e) => e.count >= 2)
+      .sort((a, b) => b.count - a.count || b.avg - a.avg)
+      .slice(0, 6);
+  }, [empiricalMatchups]);
+
   if (indexLoading || smogonLoading) return <div className="ctb-loading">Loading Champions data…</div>;
 
   return (
@@ -523,6 +543,29 @@ export default function ChampionsTeamBuilder() {
               </div>
             </div>
           )}
+
+          {/* Meta attackers the team is weak to */}
+          {teamThreats.length > 0 && (
+            <div className="ctb-threats">
+              <div className="ctb-threats__label">Weak to meta attackers <span className="ctb-muted">(number = how many of your team it beats)</span></div>
+              <div className="ctb-threats__chips">
+                {teamThreats.map((t) => (
+                  <div key={t.key} className="ctb-threat">
+                    <MatchupChip
+                      id={`th-${t.key}`}
+                      openId={openChip}
+                      onToggle={toggleChip}
+                      entry={{ key: t.key, name: t.name, score: t.avg }}
+                      spriteByKey={spriteByKey}
+                      variant="bad"
+                      value={String(t.count)}
+                    />
+                    <span className="ctb-threat__name">{t.name.replace(/-/g, " ")}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -540,6 +583,7 @@ export default function ChampionsTeamBuilder() {
         empiricalMatchups={empiricalMatchups}
         replayData={replayData}
         byId={byId}
+        smogonById={smogonById}
         spriteByKey={spriteByKey}
         openChip={openChip}
         onToggleChip={toggleChip}
@@ -796,10 +840,12 @@ const SPE_DOWN = new Set(["Brave", "Relaxed", "Quiet", "Sassy"]);
 // of each ability / move / item straight from the data indexes, so the model can
 // reason about how the mechanics work and how they interact — and so a future
 // season's new mechanics are covered automatically (no hardcoding).
-function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, replayData, byId, knowledgeChunks) {
+function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, replayData, byId, calcFacts, knowledgeChunks) {
   if (report.empty) return "The team is empty.";
   const bringCount = format === "Doubles" ? 4 : 3;
   const roleById = new Map(report.roles.map((r) => [r.id, r.role]));
+  // Real L50 Speed per member from the damage calc (when available), for the per-member line.
+  const realSpeById = new Map((calcFacts?.speedOrder?.tiers || []).filter((t) => t.mine).map((t) => [t.id, t.spe]));
   const lines = [];
   lines.push(`Format: ${format} (Pokémon Champions metagame).`);
   lines.push(`BRING RULE: both players bring their full 6 to Team Preview but use only ${bringCount} per battle. Analyze the team as ${bringCount}-Pokémon subsets ("brings") — which ${bringCount} work best together, how those specific Pokémon interact, and what each subset struggles with — not all 6 as if simultaneously in play.`);
@@ -825,8 +871,11 @@ function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects
       }
     }
     if (b.nature) lines.push(`    Nature ${b.nature}; EVs ${formatEvs(b.evs)}`);
+    const realSpe = realSpeById.get(p.id);
     const spe = p.stats?.speed;
-    if (spe != null) {
+    if (realSpe != null) {
+      lines.push(`    Speed — ${realSpe} (real L50 stat; see SPEED ORDER for turn order)`);
+    } else if (spe != null) {
       const evSpe = b.evs?.speed || 0;
       const mult = SPE_UP.has(b.nature) ? 1.1 : SPE_DOWN.has(b.nature) ? 0.9 : 1;
       const eff = Math.round((spe + evSpe * 1.5) * mult);
@@ -890,17 +939,38 @@ function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects
     lines.push("Detected synergy hints (you may expand on or go beyond these):");
     for (const t of report.teamTech) lines.push(`  - ${t}`);
   }
+  // SPEED ORDER — real L50 Speed stats for the team + top threats, merged and sorted.
+  if (calcFacts?.speedOrder?.tiers?.length) {
+    lines.push("");
+    lines.push("SPEED ORDER (real L50 Speed stats; higher acts first, barring priority/Trick Room. Use ONLY this to decide who outspeeds whom — do not estimate speed):");
+    lines.push("  " + calcFacts.speedOrder.tiers.map((t) => `${t.spe} ${t.name}${t.mine ? " (yours)" : ""}`).join("  >  "));
+    const scarfers = calcFacts.speedOrder.tiers.filter((t) => t.scarf && !t.mine);
+    if (scarfers.length) lines.push(`  With Choice Scarf (×1.5): ${scarfers.map((t) => `${t.name} → ${Math.round(t.spe * 1.5)}`).join(", ")}.`);
+    if (calcFacts.speedOrder.teamHasTailwind) lines.push("  Your team has Tailwind — under it your Pokémon's Speed doubles (×2) for 3 turns, flipping the order against faster foes.");
+  }
   lines.push("");
   if (threats?.length) {
-    lines.push("COMPUTED SUPER-EFFECTIVE THREATS — type effectiveness (and ability immunities) calculated from the chart; treat as GROUND TRUTH. Do NOT compute your own matchups. If a move is not listed here as super-effective against one of your Pokémon, it is NOT super-effective:");
+    lines.push(`COMPUTED SUPER-EFFECTIVE THREATS — type effectiveness (and ability immunities) from the chart${calcFacts ? ", plus real damage %/KO from the damage calculator" : ""}; treat as GROUND TRUTH. Do NOT compute your own matchups. If a move is not listed here as super-effective against one of your Pokémon, it is NOT super-effective:`);
     for (const th of threats) {
-      const hitStrs = th.hits.map((h) =>
-        `${h.move} (${cap(h.moveType)}${h.stab ? " STAB" : ""}${h.power ? `, ${h.power} BP` : ""}, ${h.damageClass}) → your ${h.target} ${h.mult}×`
-      );
+      const hitStrs = th.hits.map((h) => {
+        const ko = calcFacts?.incoming?.[th.id]?.[h.move]?.[h.targetId];
+        return `${h.move} (${cap(h.moveType)}${h.stab ? " STAB" : ""}${h.power ? `, ${h.power} BP` : ""}, ${h.damageClass}) → your ${h.target} ${h.mult}×${ko ? ` — ${ko}` : ""}`;
+      });
       lines.push(`  - ${th.name} [${th.types.join("/")}]${th.rank ? ` (rank ${th.rank})` : ""}: ${hitStrs.join("; ")}`);
     }
   } else {
     lines.push("COMPUTED THREATS: no common meta Pokémon has a super-effective move against your current team (per the type chart). Pressure will come from strong neutral attackers, coverage moves, or utility (speed control, Fake Out, redirection) — do not invent type advantages.");
+  }
+  // YOUR OFFENSE — real KOs your team lands on the meta (from the damage calc).
+  const offense = calcFacts?.outgoing || {};
+  if (team.some((p) => offense[p.id]?.length)) {
+    lines.push("");
+    lines.push("YOUR OFFENSE (real damage calc — decisive KOs your Pokémon land on common meta Pokémon; treat as GROUND TRUTH. Do NOT claim a KO not listed here):");
+    for (const p of team) {
+      const rows = offense[p.id];
+      if (!rows?.length) continue;
+      lines.push(`  - ${p.name.replace(/-/g, " ")}: ${rows.map((r) => `${r.move} → ${r.threat} ${r.str}`).join("; ")}`);
+    }
   }
   if (empiricalMatchups?.length) {
     lines.push("");
@@ -930,17 +1000,27 @@ const BREAKDOWN_PROMPT =
   "is a two-Pokémon LEAD PAIR (format \"A / B:\" then a brief 2-turn plan); in Singles each is a single lead. RANK them " +
   "using the LEAD-PAIR SUCCESS data (real win rates) where available — the most POPULAR pair is NOT always the best, so " +
   "prefer higher win rate while weighing sample size (n). You may also offer one promising option not in the data if " +
-  "its synergy is clear, but say it's not data-backed. For each option, write turn 1 and turn 2 as concrete lines (with " +
-  "a key if/then read) that respect POSITIONING — only the active Pokémon act, and bringing in a benched mon needs a " +
-  "switch. Ground the lead choice and turn-1 clicks in each member's 'Real-game openings' data (real lead rates + " +
-  "turn-1 plays), and don't mega more than one Pokémon.\n" +
-  "• WIN CONDITION: the primary path to winning and what has to happen for it.\n" +
+  "its synergy is clear, but say it's not data-backed. For each option, write turn 1 and turn 2 giving BOTH active " +
+  "leads' actions on EACH turn — in Doubles both of your active Pokémon move every turn, so state a move (or switch) " +
+  "for EACH of the two, never just one. Label each turn with its role, e.g. \"Turn 1 (Setup): Whimsicott → Tailwind " +
+  "(doubles your Speed); Basculegion → Wave Crash (OHKOes X).\" / \"Turn 2 (Follow-up): …\". Any if/then read must " +
+  "branch on the OPPONENT's likely play while STILL stating what BOTH of your Pokémon do that turn (not use the " +
+  "branch to cover only one). Respect POSITIONING — only the two active Pokémon act, and bringing in a benched mon " +
+  "needs a switch that spends its turn. Ground the lead choice and turn-1 clicks in each member's 'Real-game openings' data (real lead rates + " +
+  "turn-1 plays), and don't mega more than one Pokémon. Use SPEED ORDER (real L50 speeds) to decide who moves " +
+  "first each turn, and when a turn-1 attack scores a KO, SAY SO using the damage-calc numbers (e.g. \"OHKOes\").\n" +
+  "• WIN CONDITION: the primary path to winning and what has to happen for it. Ground it in the real KO math — " +
+  "name which of your attackers OHKO/2HKO the key meta Pokémon (from YOUR OFFENSE) and who you outspeed (SPEED ORDER).\n" +
   "• THREATS: use ONLY the computed super-effective list and the empirical checks/counters — name the specific " +
-  "Pokémon (and move, where given) that threatens the bring.\n" +
+  "Pokémon and move, AND cite the real KO it lands on which of your Pokémon (e.g. \"Weavile's Icicle Crash is a " +
+  "guaranteed OHKO on your Garchomp\"), using the damage-calc percentages/KO on the threat lines. Flag especially " +
+  "any threat that OHKOes a member AND outspeeds it (per SPEED ORDER).\n" +
   "• IMPROVE: the top one or two ways to improve the team.\n" +
-  "Keep it tight and actionable; never invent a type interaction not in the data.";
+  "Throughout, cite the concrete numbers provided — real damage %/KO (guaranteed OHKO, 2HKO) and Speed order — " +
+  "rather than vague phrases like \"deals significant damage\"; that hard math is the point. Keep it tight and " +
+  "actionable; never invent a damage, KO, speed, or type interaction not in the data.";
 
-function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, replayData, byId, spriteByKey, openChip, onToggleChip, knowledgeEmbeddings }) {
+function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, replayData, byId, smogonById, spriteByKey, openChip, onToggleChip, knowledgeEmbeddings }) {
   const [password, setPassword] = useState(() => loadPassword());
   const [loginInput, setLoginInput] = useState("");
   const [loginError, setLoginError] = useState(null);
@@ -955,25 +1035,6 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
   const [error, setError] = useState(null);
 
   const authed = !!password;
-
-  // Meta attackers the team is weak to: aggregate each member's empirical "beaten by" list
-  // into the opposing Pokémon that beat the most of the team (a concrete, named weakness the
-  // bare type list can't express). Only mons that beat 2+ members count as team-level threats.
-  const teamThreats = useMemo(() => {
-    const agg = new Map();
-    for (const m of empiricalMatchups || []) {
-      for (const c of m.checkedBy || []) {
-        let e = agg.get(c.key);
-        if (!e) { e = { key: c.key, name: c.name, members: 0, scoreSum: 0 }; agg.set(c.key, e); }
-        e.members += 1; e.scoreSum += c.score;
-      }
-    }
-    return [...agg.values()]
-      .map((e) => ({ key: e.key, name: e.name, count: e.members, avg: e.scoreSum / e.members }))
-      .filter((e) => e.count >= 2)
-      .sort((a, b) => b.count - a.count || b.avg - a.avg)
-      .slice(0, 6);
-  }, [empiricalMatchups]);
 
   // Signature of everything that feeds buildFacts — drives auto re-analysis.
   const sig = useMemo(() => {
@@ -995,7 +1056,19 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
   const bringCount = format === "Doubles" ? 4 : 3;
   // AI analysis only makes sense once a full "bring" is selected (4 doubles / 3 singles).
   const enoughForAI = team.length >= bringCount;
-  function systemPrompt(knowledgeChunks) {
+  function systemPrompt(knowledgeChunks, calcFacts) {
+    const calcRule = calcFacts
+      ? `CRITICAL — DAMAGE & SPEED: real damage percentages and KO chances (OHKO/2HKO/…) are precomputed from a ` +
+        `damage calculator under "COMPUTED SUPER-EFFECTIVE THREATS" and "YOUR OFFENSE", and real turn order under ` +
+        `"SPEED ORDER". Treat these as the ONLY source of truth for KO math and speed. Do NOT estimate, compute, or ` +
+        `assert any damage %, OHKO/2HKO, "it survives", or speed matchup that is not listed. Prefer citing the KO ` +
+        `bucket (e.g. "guaranteed OHKO") over the raw %. Speed-modifying effects (Choice Scarf, Tailwind, paralysis, ` +
+        `Trick Room) change turn order only as annotated in SPEED ORDER. Some KO figures carry a weather/terrain ` +
+        `annotation like "(in Sun)" or "(in Grassy Terrain)" — this means an ability (e.g. Drought, Grassy Surge) ` +
+        `on one of the two Pokémon in that matchup sets that field condition, and the number already accounts for ` +
+        `it; ALWAYS keep that annotation when you cite the figure, and call out the weather/terrain as the reason ` +
+        `(e.g. "boosted by its own Drought-set Sun" or "halved by the Sun from its Drought").\n\n`
+      : "";
     const knowledgeRule = knowledgeChunks?.length
       ? `REFERENCE — a "RELEVANT STRATEGY KNOWLEDGE" section is included below with general competitive ` +
         `concepts. Use it only as background strategy guidance; it is NOT specific to this team and must NOT ` +
@@ -1027,6 +1100,7 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
       `Treat those as the ONLY sources of truth for what threatens or is beaten by this team. When naming a ` +
       `threat or a favorable matchup, cite the specific opposing Pokémon (and move, if from the computed list) ` +
       `— never assert a super-effective, resisted, or immune interaction that is not in the provided data.\n\n` +
+      calcRule +
       `CRITICAL — MECHANICS: every move, ability, and item the team runs is listed below WITH its exact in-game ` +
       `effect. When you describe or recommend what something does, use ONLY that provided effect text — do NOT ` +
       `attribute an effect a move/ability/item does not have. Read the effect literally: "the user" means the ` +
@@ -1050,7 +1124,7 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
       knowledgeRule +
       `Be concise, specific, and concrete; prefer a few bullet points. Only use the provided data.\n\n` +
       `TEAM DATA:\n` +
-      buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, replayData, byId, knowledgeChunks)
+      buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, replayData, byId, calcFacts, knowledgeChunks)
     );
   }
 
@@ -1067,6 +1141,17 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
       return hits;
     } catch {
       return []; // embedQuery already logged the error; fall back to structured facts
+    }
+  }
+
+  // Real damage %/KO + speed order from @smogon/calc (lazy-loaded). Any failure → null so the
+  // coach degrades to the existing type-multiplier-only grounding.
+  async function computeCalc() {
+    try {
+      return await computeCalcFacts({ team, currentBuilds, threats, smogonById, byId, format });
+    } catch (e) {
+      logger.info("Damage calc unavailable:", e?.message || e);
+      return null;
     }
   }
 
@@ -1088,8 +1173,10 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
       try {
         const chunks = await retrieveKnowledge(synthesizeTeamQuery(team, currentBuilds, report));
         if (cancelled) return;
+        const calcFacts = await computeCalc();
+        if (cancelled) return;
         const reply = await callCoach({
-          system: systemPrompt(chunks),
+          system: systemPrompt(chunks, calcFacts),
           messages: [{ role: "user", content: BREAKDOWN_PROMPT }],
           password,
         });
@@ -1138,8 +1225,9 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
     setBusy(true);
     try {
       const chunks = await retrieveKnowledge(userText);
+      const calcFacts = await computeCalc();
       const reply = await callCoach({
-        system: systemPrompt(chunks),
+        system: systemPrompt(chunks, calcFacts),
         messages: history.map((m) => ({ role: m.role, content: m.content })),
         password,
       });
@@ -1187,25 +1275,6 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
               {report.poorAgainst.length ? report.poorAgainst.map((t) => <TypeBadge key={t} type={t} small />) : <span className="ctb-muted"> nothing shared</span>}
             </div>
           </div>
-          {teamThreats.length > 0 && (
-            <div className="ctb-threats">
-              <div className="ctb-threats__label">Weak to meta attackers <span className="ctb-muted">(number = how many of your team it beats)</span></div>
-              <div className="ctb-threats__chips">
-                {teamThreats.map((t) => (
-                  <MatchupChip
-                    key={t.key}
-                    id={`th-${t.key}`}
-                    openId={openChip}
-                    onToggle={onToggleChip}
-                    entry={{ key: t.key, name: t.name, score: t.avg }}
-                    spriteByKey={spriteByKey}
-                    variant="bad"
-                    value={String(t.count)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -1256,7 +1325,7 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
           ) : (
             <>
               {aiBusy && !aiText && <p className="ctb-muted">Analyzing your team…</p>}
-              {aiText && <TypedMarkdown className="ctb-ai__body" text={aiText} />}
+              {aiText && <TypedMarkdown className="ctb-ai__body" text={aiText} autoScroll />}
               {aiBusy && aiText && <p className="ctb-muted">Updating…</p>}
               {aiError && <div className="ctb-err">AI unavailable ({aiError}). Showing the rule-based analysis above.</div>}
             </>

@@ -1,18 +1,24 @@
 // Team-coach LLM client.
 //
-// The coach talks to a shared AWS Lambda proxy that holds the Groq key
-// server-side (see infra/groq-proxy/). The browser authenticates with a shared
-// password the user enters ONCE via the coach login — it's kept in localStorage
-// and never shipped in the bundle. With no valid password the coach falls back
-// to the keyless rule-based report (teamCoach.js).
+// The coach talks to a shared AWS Lambda proxy that holds the LLM provider key
+// server-side (the poke-llm-proxy Lambda repo — the chat branch forwards to
+// Google Gemini's OpenAI-compatible endpoint). The browser authenticates with a
+// shared password the user enters ONCE via the coach login — it's kept in
+// localStorage and never shipped in the bundle. With no valid password the coach
+// falls back to the keyless rule-based report (teamCoach.js).
 
 import { PROXY_URL } from "../config.js";
 import { logger } from "./logger.js";
 
 const LS_PASSWORD = "champions-coach-password";
 
-// Model the proxy forwards to Groq. Fixed — there is no user-facing model choice.
-export const COACH_MODEL = "llama-3.3-70b-versatile";
+// Model the proxy forwards to (Gemini via its OpenAI-compatible endpoint). Fixed —
+// there is no user-facing model choice. Use a *-flash-lite variant: the heavier
+// "thinking" models (e.g. gemini-3.5-flash) do enough internal reasoning on the
+// coach's ~6K-token grounding prompt to exceed the Lambda timeout and 502. Flash-lite
+// still reasons well above the old Llama 3.3 70B. (gemini-2.5-flash is unavailable to
+// newer API keys, hence the 3.x line.)
+export const COACH_MODEL = "gemini-3.1-flash-lite";
 
 export function loadPassword() {
   try { return localStorage.getItem(LS_PASSWORD) || ""; } catch { return ""; }

@@ -80,6 +80,7 @@ export function computeThreats({
           power: info.power || null,
           stab: poke.types.map((x) => x.toLowerCase()).includes(mtype),
           target: p.name.replace(/-/g, " "),
+          targetId: p.id, // roster key, so a damage calc can be looked up per (threat, move, member)
           targetTypes: p.types,
           mult,
         });
