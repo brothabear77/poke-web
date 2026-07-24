@@ -861,7 +861,14 @@ function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects
     if (!b) continue;
     lines.push(`• ${p.name.replace(/-/g, " ")} [${p.types.join("/")}]${p.isMega ? " (Mega Evolution)" : ""} — ${roleById.get(p.id) || "—"}`);
     if (b.ability) lines.push(`    Ability — ${b.ability}: ${abilityEffects.get(b.ability) || "(effect unknown)"}`);
-    if (b.item) lines.push(`    Item — ${b.item}: ${itemEffects.get(b.item) || "(effect unknown)"}`);
+    if (b.item) {
+      // Choice items lock the holder into its first move until it switches — flag it loudly so the
+      // turn-by-turn plan respects the lock (see the CHOICE LOCK guardrail in the system prompt).
+      const choiceNote = /^Choice /.test(b.item)
+        ? " [CHOICE-LOCKED — after its first move it can only repeat that move or switch out]"
+        : "";
+      lines.push(`    Item — ${b.item}: ${itemEffects.get(b.item) || "(effect unknown)"}${choiceNote}`);
+    }
     const moves = (b.moves || []).filter(Boolean);
     if (moves.length) {
       lines.push("    Moves:");
@@ -973,6 +980,13 @@ function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects
       lines.push(`  - ${p.name.replace(/-/g, " ")}: ${rows.map((r) => `${r.move} → ${r.threat} ${r.str}`).join("; ")}`);
     }
   }
+  // TOUGH TARGETS — meta mons NO member cleanly KOs (from the damage calc). This is what the
+  // coach needs to answer "what do I do against something I can't OHKO": pivot, don't muscle.
+  if (calcFacts?.toughTargets?.length) {
+    lines.push("");
+    lines.push("TOUGH TARGETS (real damage calc — common meta Pokémon that NO team member OHKOs or 2HKOs; treat as GROUND TRUTH. Against these you CANNOT rely on a clean KO — plan to pivot/switch to a better answer, chip and finish with priority, redirect, or set up, rather than trading into them):");
+    lines.push("  " + calcFacts.toughTargets.join(", "));
+  }
   if (empiricalMatchups?.length) {
     lines.push("");
     lines.push("EMPIRICAL MATCHUPS (Smogon, same meta — real win rates from battle logs, not a type calculation; treat as GROUND TRUTH alongside the computed threats above. % is the winner's rate):");
@@ -1010,6 +1024,12 @@ const BREAKDOWN_PROMPT =
   "needs a switch that spends its turn. Ground the lead choice and turn-1 clicks in each member's 'Real-game openings' data (real lead rates + " +
   "turn-1 plays), and don't mega more than one Pokémon. Use SPEED ORDER (real L50 speeds) to decide who moves " +
   "first each turn, and when a turn-1 attack scores a KO, SAY SO using the damage-calc numbers (e.g. \"OHKOes\").\n" +
+  "  For EACH option give BOTH branches, not just the rosy one: (a) the FAVORABLE line when your attacks land the " +
+  "KOs, and (b) the UNFAVORABLE line — what to do when the opponent leads or reveals a Pokémon you CANNOT cleanly " +
+  "KO (use TOUGH TARGETS, and treat any meta Pokémon NOT in YOUR OFFENSE as one you have no guaranteed KO on) or " +
+  "that threatens your lead. Give a concrete answer for that case: switch to a resist/answer, Protect and reposition, " +
+  "pivot, chip then finish with priority, or set up — never assume you always get your good matchup, and don't just " +
+  "pick whichever opposing Pokémon your move happens to KO.\n" +
   "• WIN CONDITION: the primary path to winning and what has to happen for it. Ground it in the real KO math — " +
   "name which of your attackers OHKO/2HKO the key meta Pokémon (from YOUR OFFENSE) and who you outspeed (SPEED ORDER).\n" +
   "• THREATS: use ONLY the computed super-effective list and the empirical checks/counters — name the specific " +
@@ -1088,6 +1108,19 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
       : `CRITICAL — SINGLES POSITIONING: exactly ONE of your Pokémon is active at a time; each turn it makes one ` +
         `choice (a move OR a switch). Only the active Pokémon can act — a benched Pokémon must switch in (spending ` +
         `the turn) before it can attack. Describe only the active Pokémon acting each turn.\n\n`;
+    // Only include the Choice-lock guardrail when the team actually runs a Choice item.
+    const choiceHolders = team
+      .filter((p) => /^Choice /.test(currentBuilds.get(p.id)?.item || ""))
+      .map((p) => `${p.name.replace(/-/g, " ")} (${currentBuilds.get(p.id).item})`);
+    const choiceRule = choiceHolders.length
+      ? `CRITICAL — CHOICE LOCK: ${choiceHolders.join("; ")} — a Choice item (Band/Specs/Scarf) LOCKS its holder ` +
+        `into the FIRST move it selects; it CANNOT use any other move until it SWITCHES OUT (a Choice Scarf still ` +
+        `gives the ×1.5 Speed already reflected in SPEED ORDER). In EVERY turn-by-turn plan, a Choice holder must ` +
+        `either REPEAT its locked move on later turns or SWITCH OUT — NEVER show it using two different moves across ` +
+        `turns, and never more than one move in a single turn. Choose its locked move deliberately; if the opponent ` +
+        `has something that move can't break or KO (see TOUGH TARGETS), the correct next turn is to SWITCH, not to ` +
+        `silently change moves.\n\n`
+      : "";
     return (
       `You are a sharp competitive Pokémon team coach for the Pokémon Champions ${format} metagame. ` +
       `Use the data below — which includes how each ability, move, and item actually works — to reason ` +
@@ -1124,6 +1157,7 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
       `only saves the Pokémon that clicks it, so "answer this threat with Protect" only works when the threatened ` +
       `Pokémon protects itself — Protecting a different member does nothing for the one under threat.\n\n` +
       positioningRule +
+      choiceRule +
       knowledgeRule +
       `Be concise, specific, and concrete; prefer a few bullet points. Only use the provided data.\n\n` +
       `TEAM DATA:\n` +

@@ -178,7 +178,9 @@ export async function computeCalcFacts({ team, currentBuilds, threats, smogonByI
   }
 
   // OUTGOING: each member's damaging moves vs each threat — keep the decisive results (OHKO/2HKO).
+  // Also record which threats SOMEONE can cleanly KO, so we can derive the ones nobody can (below).
   const outgoing = {}; // memberId -> [{ threat, move, str, rank }]
+  const koedThreatIds = new Set(); // threat ids OHKO'd or 2HKO'd by at least one member
   for (const [mid, mem] of members) {
     const rows = [];
     const build = currentBuilds.get(mid);
@@ -187,17 +189,25 @@ export async function computeCalcFacts({ team, currentBuilds, threats, smogonByI
       let move;
       try { move = moveCache.get(mv) || moveCache.set(mv, new mod.Move(gen, mv)).get(mv); } catch { continue; }
       if (!move || move.category === "Status") continue;
-      for (const [, ts] of threatMons) {
+      for (const [tid, ts] of threatMons) {
         const { field, note } = battleField(mod, format, mem.ability, ts.ability);
         const f = koFact(mod, gen, mem.mon, ts.mon, mv, field, moveCache);
         if (!f || !f.ko) continue;
         const rank = f.ko.includes("OHKO") ? 0 : f.ko.includes("2HKO") ? 1 : 2;
         if (rank > 1) continue; // only decisive KOs
+        koedThreatIds.add(tid);
         rows.push({ threat: ts.name, move: mv, str: f.str + note, rank });
       }
     }
     rows.sort((a, b) => a.rank - b.rank);
     if (rows.length) outgoing[mid] = rows.slice(0, 8);
+  }
+
+  // TOUGH TARGETS: meta threats that NO team member OHKOs or 2HKOs — the mons you can't cleanly
+  // muscle through, so the coach should plan pivots/switches/chip around them rather than a KO.
+  const toughTargets = [];
+  for (const [tid, ts] of threatMons) {
+    if (!koedThreatIds.has(tid)) toughTargets.push(ts.name);
   }
 
   // SPEED ORDER: real L50 speeds for team + threats, merged and sorted, with Scarf/Tailwind notes.
@@ -206,5 +216,5 @@ export async function computeCalcFacts({ team, currentBuilds, threats, smogonByI
   for (const [, ts] of threatMons) tiers.push({ name: ts.name, spe: ts.mon.stats.spe, mine: false, scarf: ts.scarf });
   tiers.sort((a, b) => b.spe - a.spe);
 
-  return { incoming, outgoing, speedOrder: { tiers, teamHasTailwind } };
+  return { incoming, outgoing, toughTargets, speedOrder: { tiers, teamHasTailwind } };
 }
