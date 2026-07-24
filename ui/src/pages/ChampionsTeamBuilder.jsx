@@ -22,6 +22,7 @@ import { retrieve, synthesizeTeamQuery } from "../utils/knowledgeRetrieval";
 import { logger } from "../utils/logger";
 import { coachReport, answerQuestion, COACH_QUESTIONS } from "../utils/teamCoach";
 import { loadPassword, savePassword, clearPassword, callCoach, embedQuery } from "../utils/llmClient";
+import { COACH_LOCAL } from "../config.js";
 import TypeBadge from "../components/TypeBadge";
 import { assetUrl } from "../utils/assetUrl";
 import { remoteSprite, onSpriteError } from "../utils/sprite";
@@ -1034,7 +1035,9 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
-  const authed = !!password;
+  // Local dev mode (Ollama) needs no password — treat it as authed so the AI UI shows and the
+  // login form is bypassed. In prod/proxy mode this is just !!password as before.
+  const authed = COACH_LOCAL || !!password;
 
   // Signature of everything that feeds buildFacts — drives auto re-analysis.
   const sig = useMemo(() => {
@@ -1133,6 +1136,9 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
   // coach runs on its structured facts alone. Skips the network call entirely until
   // real embeddings exist (the shipped placeholder is []).
   async function retrieveKnowledge(queryText) {
+    // Local dev mode has no embeddings provider (the corpus is voyage-3-lite 512-dim, which a
+    // local model can't match), so skip RAG and let the coach run on structured facts alone.
+    if (COACH_LOCAL) return [];
     if (!queryText || !Array.isArray(knowledgeEmbeddings) || knowledgeEmbeddings.length === 0) return [];
     try {
       const vec = await embedQuery({ input: queryText, password });
@@ -1165,7 +1171,7 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
   // Auto-analyze: whenever the team/build/format changes (and we're authed),
   // regenerate the breakdown. Debounced so build edits don't spam the proxy.
   useEffect(() => {
-    if (!password || !sig || !enoughForAI) { setAiText(""); return; }
+    if (!authed || !sig || !enoughForAI) { setAiText(""); return; }
     let cancelled = false;
     setAiBusy(true);
     setAiError(null);
@@ -1282,7 +1288,12 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
       {!report.empty && (
         <div className="ctb-panel__head ctb-coach__head">
           <h2 className="ctb-panel__title">Team Coach</h2>
-          {authed && (
+          {authed && COACH_LOCAL && (
+            <div className="ctb-coach__status">
+              <span className="ctb-good">Local LLM (dev)</span>
+            </div>
+          )}
+          {authed && !COACH_LOCAL && (
             <div className="ctb-coach__status">
               <span className="ctb-good">● AI connected</span>
               <button className="ctb-linkbtn" onClick={signOut}>Sign out</button>

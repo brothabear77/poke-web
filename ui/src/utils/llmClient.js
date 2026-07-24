@@ -7,7 +7,7 @@
 // localStorage and never shipped in the bundle. With no valid password the coach
 // falls back to the keyless rule-based report (teamCoach.js).
 
-import { PROXY_URL } from "../config.js";
+import { PROXY_URL, COACH_LOCAL, LOCAL_LLM_URL, LOCAL_LLM_MODEL } from "../config.js";
 import { logger } from "./logger.js";
 
 const LS_PASSWORD = "champions-coach-password";
@@ -35,20 +35,31 @@ export function clearPassword() {
 // which should bounce the user back to the login — from other failures, which
 // fall back to the rule-based report.
 export async function callCoach({ system, messages, password }) {
-  if (!PROXY_URL) throw new Error("No proxy URL configured.");
+  // In local dev mode the request goes straight to Ollama (via the Vite proxy) with no auth;
+  // otherwise to the Gemini proxy with the shared password. Both speak OpenAI chat-completions,
+  // so only the endpoint/model/headers differ — the response parsing below is identical.
+  const url = COACH_LOCAL ? LOCAL_LLM_URL : PROXY_URL;
+  if (!url) throw new Error("No LLM endpoint configured.");
 
-  const body = { model: COACH_MODEL, messages: [{ role: "system", content: system }, ...messages] };
-  logger.group("callCoach → proxy");
-  logger.info("URL:", PROXY_URL);
+  const body = {
+    model: COACH_LOCAL ? LOCAL_LLM_MODEL : COACH_MODEL,
+    messages: [{ role: "system", content: system }, ...messages],
+  };
+  const headers = { "content-type": "application/json" };
+  if (!COACH_LOCAL) headers["x-app-password"] = password || "";
+
+  logger.group("callCoach → " + (COACH_LOCAL ? "local LLM" : "proxy"));
+  logger.info("URL:", url);
+  logger.info("Model:", body.model);
   logger.info("Messages:", body.messages.length, "(system + history)");
-  logger.info("Password set:", !!password);
+  logger.info("Password set:", COACH_LOCAL ? "(local, n/a)" : !!password);
   logger.groupEnd();
 
   let res;
   try {
-    res = await fetch(PROXY_URL, {
+    res = await fetch(url, {
       method: "POST",
-      headers: { "content-type": "application/json", "x-app-password": password || "" },
+      headers,
       body: JSON.stringify(body),
     });
   } catch (fetchErr) {
