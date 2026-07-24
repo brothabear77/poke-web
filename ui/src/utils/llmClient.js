@@ -13,9 +13,12 @@ import { logger } from "./logger.js";
 const LS_PASSWORD = "champions-coach-password";
 
 // Model the proxy forwards to (Gemini via its OpenAI-compatible endpoint). Fixed —
-// there is no user-facing model choice. gemini-2.5-flash is free-tier eligible and
-// reasons well above the old Llama 3.3 70B; bump to gemini-3.5-flash if desired.
-export const COACH_MODEL = "gemini-2.5-flash";
+// there is no user-facing model choice. Use a *-flash-lite variant: the heavier
+// "thinking" models (e.g. gemini-3.5-flash) do enough internal reasoning on the
+// coach's ~6K-token grounding prompt to exceed the Lambda timeout and 502. Flash-lite
+// still reasons well above the old Llama 3.3 70B. (gemini-2.5-flash is unavailable to
+// newer API keys, hence the 3.x line.)
+export const COACH_MODEL = "gemini-3.1-flash-lite";
 
 export function loadPassword() {
   try { return localStorage.getItem(LS_PASSWORD) || ""; } catch { return ""; }

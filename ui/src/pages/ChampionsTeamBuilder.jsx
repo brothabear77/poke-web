@@ -347,6 +347,25 @@ export default function ChampionsTeamBuilder() {
     }).filter((m) => m.checkedBy.length || m.counters.length);
   }, [team, smogonById, format]);
 
+  // Meta attackers the team is weak to: aggregate each member's empirical "beaten by" list
+  // into the opposing Pokémon that beat the most of the team (a concrete, named weakness the
+  // bare type list can't express). Only mons that beat 2+ members count as team-level threats.
+  const teamThreats = useMemo(() => {
+    const agg = new Map();
+    for (const m of empiricalMatchups || []) {
+      for (const c of m.checkedBy || []) {
+        let e = agg.get(c.key);
+        if (!e) { e = { key: c.key, name: c.name, members: 0, scoreSum: 0 }; agg.set(c.key, e); }
+        e.members += 1; e.scoreSum += c.score;
+      }
+    }
+    return [...agg.values()]
+      .map((e) => ({ key: e.key, name: e.name, count: e.members, avg: e.scoreSum / e.members }))
+      .filter((e) => e.count >= 2)
+      .sort((a, b) => b.count - a.count || b.avg - a.avg)
+      .slice(0, 6);
+  }, [empiricalMatchups]);
+
   if (indexLoading || smogonLoading) return <div className="ctb-loading">Loading Champions data…</div>;
 
   return (
@@ -519,6 +538,29 @@ export default function ChampionsTeamBuilder() {
                         </span>
                       </div>
                     )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Meta attackers the team is weak to */}
+          {teamThreats.length > 0 && (
+            <div className="ctb-threats">
+              <div className="ctb-threats__label">Weak to meta attackers <span className="ctb-muted">(number = how many of your team it beats)</span></div>
+              <div className="ctb-threats__chips">
+                {teamThreats.map((t) => (
+                  <div key={t.key} className="ctb-threat">
+                    <MatchupChip
+                      id={`th-${t.key}`}
+                      openId={openChip}
+                      onToggle={toggleChip}
+                      entry={{ key: t.key, name: t.name, score: t.avg }}
+                      spriteByKey={spriteByKey}
+                      variant="bad"
+                      value={String(t.count)}
+                    />
+                    <span className="ctb-threat__name">{t.name.replace(/-/g, " ")}</span>
                   </div>
                 ))}
               </div>
@@ -994,25 +1036,6 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
 
   const authed = !!password;
 
-  // Meta attackers the team is weak to: aggregate each member's empirical "beaten by" list
-  // into the opposing Pokémon that beat the most of the team (a concrete, named weakness the
-  // bare type list can't express). Only mons that beat 2+ members count as team-level threats.
-  const teamThreats = useMemo(() => {
-    const agg = new Map();
-    for (const m of empiricalMatchups || []) {
-      for (const c of m.checkedBy || []) {
-        let e = agg.get(c.key);
-        if (!e) { e = { key: c.key, name: c.name, members: 0, scoreSum: 0 }; agg.set(c.key, e); }
-        e.members += 1; e.scoreSum += c.score;
-      }
-    }
-    return [...agg.values()]
-      .map((e) => ({ key: e.key, name: e.name, count: e.members, avg: e.scoreSum / e.members }))
-      .filter((e) => e.count >= 2)
-      .sort((a, b) => b.count - a.count || b.avg - a.avg)
-      .slice(0, 6);
-  }, [empiricalMatchups]);
-
   // Signature of everything that feeds buildFacts — drives auto re-analysis.
   const sig = useMemo(() => {
     if (report.empty) return "";
@@ -1252,25 +1275,6 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
               {report.poorAgainst.length ? report.poorAgainst.map((t) => <TypeBadge key={t} type={t} small />) : <span className="ctb-muted"> nothing shared</span>}
             </div>
           </div>
-          {teamThreats.length > 0 && (
-            <div className="ctb-threats">
-              <div className="ctb-threats__label">Weak to meta attackers <span className="ctb-muted">(number = how many of your team it beats)</span></div>
-              <div className="ctb-threats__chips">
-                {teamThreats.map((t) => (
-                  <MatchupChip
-                    key={t.key}
-                    id={`th-${t.key}`}
-                    openId={openChip}
-                    onToggle={onToggleChip}
-                    entry={{ key: t.key, name: t.name, score: t.avg }}
-                    spriteByKey={spriteByKey}
-                    variant="bad"
-                    value={String(t.count)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -1321,7 +1325,7 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
           ) : (
             <>
               {aiBusy && !aiText && <p className="ctb-muted">Analyzing your team…</p>}
-              {aiText && <TypedMarkdown className="ctb-ai__body" text={aiText} />}
+              {aiText && <TypedMarkdown className="ctb-ai__body" text={aiText} autoScroll />}
               {aiBusy && aiText && <p className="ctb-muted">Updating…</p>}
               {aiError && <div className="ctb-err">AI unavailable ({aiError}). Showing the rule-based analysis above.</div>}
             </>
