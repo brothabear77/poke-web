@@ -14,7 +14,7 @@ import Markdown from "./Markdown";
  * @param {boolean} [animate=true]  When false, renders the full text immediately.
  * @param {number}  [cps=120]       Reveal speed (characters/second).
  */
-export default function TypedMarkdown({ text, className, animate = true, cps = 180 }) {
+export default function TypedMarkdown({ text, className, animate = true, cps = 90 }) {
   const full = text || "";
   const [count, setCount] = useState(animate ? 0 : full.length);
   // Respect users who prefer reduced motion — show everything at once.

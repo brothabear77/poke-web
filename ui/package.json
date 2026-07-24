@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@smogon/calc": "^0.11.0",
     "playwright": "^1.61.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
