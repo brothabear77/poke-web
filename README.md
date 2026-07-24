@@ -83,6 +83,30 @@ npm install    # first time only
 npm run dev
 ```
 
+### Team Coach in dev — free local LLM (no tokens)
+
+`npm run dev` runs the Team Coach against a **free local LLM** instead of the cloud Gemini
+proxy, so iterating costs no tokens and needs no password. Production (the deployed site)
+always uses the Gemini proxy — the local path only exists in the dev server.
+
+One-time setup ([Ollama](https://ollama.com)):
+
+```bash
+brew install ollama          # or download from ollama.com
+ollama serve                 # usually auto-runs as a background service
+ollama pull qwen2.5:7b       # ~5 GB — the model the coach calls
+```
+
+Then `npm run dev` and open the Team Builder — the coach auto-analyzes with no login prompt
+(look for the `Local LLM (dev)` badge). Notes:
+
+- **First response is slow** (a 7B model on the coach's large prompt can take 10–60s on CPU).
+- **RAG is off locally** (the knowledge corpus uses cloud embeddings); the coach still runs on
+  its full structured + damage-calc grounding.
+- **Quality is a preview**, not a match for the production Gemini model.
+- **To test the real Gemini proxy in dev**, create `ui/.env.local` with `VITE_COACH_PROXY=1`
+  and restart — then the normal password login applies (see `ui/.env.example`).
+
 ---
 
 ## Deployment
