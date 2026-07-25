@@ -66,7 +66,7 @@ export const MOVE_NOTES = {
   "Rage Powder":  { tag: "redirection",   text: "draws single-target attacks onto itself to shield a partner." },
   "Helping Hand": { tag: "utility",       text: "boosts an ally's attack by 50% for the turn." },
   Taunt:          { tag: "disruption",    text: "blocks the target's status moves for 3 turns." },
-  Encore:         { tag: "disruption",    text: "locks the target into its last move." },
+  Encore:         { tag: "disruption",    text: "locks the target into repeating its last move for 3 turns — but FAILS if the target has not used a move yet, so it does nothing on turn 1 or against a foe that just switched in; use it only after the target has committed a move." },
   "Will-O-Wisp":  { tag: "disruption",    text: "burns the target, halving its physical damage." },
   "Thunder Wave": { tag: "disruption",    text: "paralyzes the target, quartering its Speed." },
   Yawn:           { tag: "disruption",    text: "forces a switch or puts the target to sleep next turn." },
@@ -149,7 +149,7 @@ const STATUS_PRIORITY_HIGHLIGHTS = {
   Taunt: "priority Taunt to shut down a foe before it acts",
   "Will-O-Wisp": "priority burns to cripple physical attackers",
   "Thunder Wave": "priority paralysis for speed control",
-  Encore: "priority Encore to lock a foe in",
+  Encore: "fast Encore — BUT Encore needs the target to have ALREADY moved, and Prankster makes this Pokémon move FIRST, so a turn-1 Encore (or one on a foe that just switched in) FAILS with nothing to lock; do NOT open with Encore — save it for a later turn after the foe has committed to a move",
   "Light Screen": "fast screens", Reflect: "fast screens",
 };
 
