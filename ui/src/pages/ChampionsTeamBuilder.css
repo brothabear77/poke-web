@@ -451,6 +451,23 @@
   overflow-y: auto;
   padding-right: 8px;
 }
+.ctb-ai__loading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 4px 0 0;
+}
+@keyframes ctb-spin {
+  to { transform: rotate(360deg); }
+}
+.ctb-spinner {
+  width: 15px; height: 15px;
+  border: 2px solid #d8cbfb;
+  border-top-color: #7038f8;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: ctb-spin 0.7s linear infinite;
+}
 .ctb-report__summary { font-size: 0.9rem; font-weight: 600; margin: 0 0 12px; }
 .ctb-report__cols {
   display: grid;

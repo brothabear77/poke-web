@@ -9,6 +9,7 @@
 // the type-multiplier-only line).
 
 import { getBuild } from "./championsStrategy";
+import { detectInteractions } from "./interactionRules";
 
 // Champions "stat points" (0–32) → standard EVs, via the HOME transfer rule: the first point
 // is 4 EVs, each additional point 8 EVs (so 32 points → exactly 252 EVs) at level 50 / 31 IVs.
@@ -105,6 +106,22 @@ function koFact(mod, gen, attacker, defender, moveName, field, moveCache) {
   }
 }
 
+// Move flags (contact/priority/target/category/type) for the interaction-rules layer, read
+// straight from @smogon/calc's dex. Cached at module scope — flags are static per generation.
+// NOTE: the calc's `makesContact` property is NOT reliable (undefined on Pokemon Showdown's own
+// dex build for this version) — the real signal is the sparse `flags.contact` object key.
+const _flagCache = new Map();
+function moveFlag(mod, gen, moveName) {
+  if (_flagCache.has(moveName)) return _flagCache.get(moveName);
+  let f = { contact: false, priority: 0, target: "normal", category: undefined, type: undefined };
+  try {
+    const m = new mod.Move(gen, moveName);
+    f = { contact: !!m.flags?.contact, priority: m.priority ?? 0, target: m.target, category: m.category, type: m.type };
+  } catch { /* unresolved move name — keep the default */ }
+  _flagCache.set(moveName, f);
+  return f;
+}
+
 const baseField = (mod, format) => new mod.Field({ gameType: format === "Doubles" ? "Doubles" : "Singles" });
 
 // Build a field based on attacker/defender abilities that set weather or terrain.
@@ -136,28 +153,39 @@ function battleField(mod, format, attackerAbility, defenderAbility) {
 }
 
 // --- batch entry point -----------------------------------------------------
-// Returns { incoming, outgoing, speedOrder } for the current team + threats, all from real
-// calc math. Fails soft: any per-pair error yields null and is skipped.
+// Returns { incoming, outgoing, toughTargets, interactions, speedOrder } for the current team +
+// threats, all from real calc math. Fails soft: any per-pair error yields null and is skipped.
 export async function computeCalcFacts({ team, currentBuilds, threats, smogonById, byId, format }) {
   const { mod, gen } = await loadCalc();
   const moveCache = new Map();
 
   // Build calc mons for team members (from their edited builds) and threats (top usage set).
-  const members = new Map(); // id -> { entry, mon, ability, hasTailwind }
+  const members = new Map(); // id -> { entry, mon, ability, item, moves, hasTailwind }
   for (const p of team) {
     const build = currentBuilds.get(p.id);
     if (!build) continue;
-    try { members.set(p.id, { entry: p, name: p.name, mon: toCalcMon(mod, gen, p, build), ability: build.ability || null, hasTailwind: (build.moves || []).includes("Tailwind") }); } catch { /* skip */ }
+    try {
+      members.set(p.id, {
+        entry: p, name: p.name, mon: toCalcMon(mod, gen, p, build),
+        ability: build.ability || null, item: build.item || null, moves: (build.moves || []).filter(Boolean),
+        hasTailwind: (build.moves || []).includes("Tailwind"),
+      });
+    } catch { /* skip */ }
   }
   const teamHasTailwind = [...members.values()].some((m) => m.hasTailwind);
 
-  const threatMons = new Map(); // id -> { entry, name, mon, ability, scarf }
+  const threatMons = new Map(); // id -> { entry, name, mon, ability, item, scarf }
   for (const th of threats || []) {
     const rec = smogonById.get(th.id);
     const entry = byId.get(th.id);
     if (!rec || !entry) continue;
     const build = topSetBuild(getBuild(rec, format));
-    try { threatMons.set(th.id, { entry, name: th.name, mon: toCalcMon(mod, gen, entry, build), ability: build.ability || null, scarf: build.item === "Choice Scarf" }); } catch { /* skip */ }
+    try {
+      threatMons.set(th.id, {
+        entry, name: th.name, mon: toCalcMon(mod, gen, entry, build),
+        ability: build.ability || null, item: build.item || null, scarf: build.item === "Choice Scarf",
+      });
+    } catch { /* skip */ }
   }
 
   // INCOMING: for each already-computed super-effective threat hit, real KO vs that member.
@@ -215,6 +243,19 @@ export async function computeCalcFacts({ team, currentBuilds, threats, smogonByI
   for (const [id, mem] of members) tiers.push({ name: mem.name, spe: mem.mon.stats.spe, mine: true, id });
   for (const [, ts] of threatMons) tiers.push({ name: ts.name, spe: ts.mon.stats.spe, mine: false, scarf: ts.scarf });
   tiers.sort((a, b) => b.spe - a.spe);
+  const speedOrder = { tiers, teamHasTailwind };
 
-  return { incoming, outgoing, toughTargets, speedOrder: { tiers, teamHasTailwind } };
+  // INTERACTIONS: deterministic cross-mechanic detection (weather/terrain synergy, contact-punish,
+  // redirection+setup, Choice/Trick-Room clash, immunity-enabled/unsafe spread moves, opposing
+  // Intimidate, priority-vs-faster-threat). See interactionRules.js for the full rule set.
+  const flag = (name) => moveFlag(mod, gen, name);
+  const interactions = detectInteractions({
+    format,
+    members: [...members.values()].map((m) => ({ name: m.name, types: m.entry.types, ability: m.ability, item: m.item, moves: m.moves })),
+    threats: [...threatMons.values()].map((t) => ({ name: t.name, types: t.entry.types, ability: t.ability, item: t.item })),
+    moveFlag: flag,
+    speedOrder,
+  }).slice(0, 12);
+
+  return { incoming, outgoing, toughTargets, interactions, speedOrder };
 }

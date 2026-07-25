@@ -3,7 +3,7 @@ import { useData } from "../hooks/useData";
 import { useUsageFiles } from "../hooks/useUsageFiles";
 import { useSmogonIndex, useSmogonFiles, useReplayData, useSmogonMeta } from "../hooks/useSmogonFiles";
 import { pokeIdByName, spriteId, smogonKeyForPokeName } from "../utils/smogonRoster";
-import { buildChart } from "../utils/typeChart";
+import { buildChart, ALL_TYPES, defenseMultiplier } from "../utils/typeChart";
 import { analyzeTeam } from "../utils/teamSuggest";
 import {
   defaultBuild,
@@ -589,6 +589,7 @@ export default function ChampionsTeamBuilder() {
         openChip={openChip}
         onToggleChip={toggleChip}
         knowledgeEmbeddings={knowledgeEmbeddings}
+        chart={chart}
       />
 
       {/* Full roster picker */}
@@ -841,7 +842,7 @@ const SPE_DOWN = new Set(["Brave", "Relaxed", "Quiet", "Sassy"]);
 // of each ability / move / item straight from the data indexes, so the model can
 // reason about how the mechanics work and how they interact — and so a future
 // season's new mechanics are covered automatically (no hardcoding).
-function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, replayData, byId, calcFacts, knowledgeChunks) {
+function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, replayData, byId, calcFacts, knowledgeChunks, chart) {
   if (report.empty) return "The team is empty.";
   const bringCount = format === "Doubles" ? 4 : 3;
   const roleById = new Map(report.roles.map((r) => [r.id, r.role]));
@@ -860,6 +861,24 @@ function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects
     const b = currentBuilds.get(p.id);
     if (!b) continue;
     lines.push(`• ${p.name.replace(/-/g, " ")} [${p.types.join("/")}]${p.isMega ? " (Mega Evolution)" : ""} — ${roleById.get(p.id) || "—"}`);
+    if (chart) {
+      // Precomputed from the type chart (same logic as the Pokédex matchup panel) so switch-in
+      // safety is a checkable fact, not a guess — this is the #1 source of coach type errors.
+      const weak4 = [], weak2 = [], resist = [], immune = [];
+      for (const t of ALL_TYPES) {
+        const m = defenseMultiplier(chart, t, p.types);
+        if (m === 0) immune.push(t);
+        else if (m >= 4) weak4.push(t);
+        else if (m > 1) weak2.push(t);
+        else if (m < 1) resist.push(t);
+      }
+      const defParts = [];
+      if (weak4.length) defParts.push(`4x weak to ${weak4.map(cap).join(", ")}`);
+      if (weak2.length) defParts.push(`weak to ${weak2.map(cap).join(", ")}`);
+      if (resist.length) defParts.push(`resists ${resist.map(cap).join(", ")}`);
+      if (immune.length) defParts.push(`immune to ${immune.map(cap).join(", ")}`);
+      if (defParts.length) lines.push(`    Defensively (type chart only — ability may override, see Ability above): ${defParts.join("; ")}.`);
+    }
     if (b.ability) lines.push(`    Ability — ${b.ability}: ${abilityEffects.get(b.ability) || "(effect unknown)"}`);
     if (b.item) {
       // Choice items lock the holder into its first move until it switches — flag it loudly so the
@@ -956,6 +975,15 @@ function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects
     if (scarfers.length) lines.push(`  With Choice Scarf (×1.5): ${scarfers.map((t) => `${t.name} → ${Math.round(t.spe * 1.5)}`).join(", ")}.`);
     if (calcFacts.speedOrder.teamHasTailwind) lines.push("  Your team has Tailwind — under it your Pokémon's Speed doubles (×2) for 3 turns, flipping the order against faster foes.");
   }
+  // INTERACTIONS — deterministic cross-mechanic detection (weather/terrain synergy, contact-punish,
+  // redirection+setup, Choice/Trick-Room clash, immunity-enabled/unsafe spread moves, opposing
+  // Intimidate, priority-vs-faster-threat). Not RAG — precisely checked from the board's actual
+  // abilities/items/moves, so it's ground truth like the rest of the computed sections.
+  if (calcFacts?.interactions?.length) {
+    lines.push("");
+    lines.push("INTERACTIONS (real mechanic interactions detected on the board — abilities, items, and moves that combine or clash; treat as GROUND TRUTH and weave these into the plan):");
+    for (const s of calcFacts.interactions) lines.push(`  - ${s}`);
+  }
   lines.push("");
   if (threats?.length) {
     lines.push(`COMPUTED SUPER-EFFECTIVE THREATS — type effectiveness (and ability immunities) from the chart${calcFacts ? ", plus real damage %/KO from the damage calculator" : ""}; treat as GROUND TRUTH. Do NOT compute your own matchups. If a move is not listed here as super-effective against one of your Pokémon, it is NOT super-effective:`);
@@ -989,10 +1017,10 @@ function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects
   }
   if (empiricalMatchups?.length) {
     lines.push("");
-    lines.push("EMPIRICAL MATCHUPS (Smogon, same meta — real win rates from battle logs, not a type calculation; treat as GROUND TRUTH alongside the computed threats above. % is the winner's rate):");
+    lines.push("EMPIRICAL MATCHUPS (Smogon, same meta — real win rates from battle logs, not a type calculation; treat as GROUND TRUTH alongside the computed threats above. % is the winner's rate. Every Pokémon named as the SUBJECT of a line below — before \"is BEATEN BY\" / \"BEATS\" — is one of YOUR OWN roster members, already on the team; the names AFTER \"BEATEN BY\"/\"BEATS\" are the OPPOSING meta Pokémon it matches up against. This section is never a source of Pokémon to add.):");
     for (const m of empiricalMatchups) {
-      if (m.checkedBy.length) lines.push(`  - ${m.name} is BEATEN BY: ${m.checkedBy.map((c) => `${c.name} (${(c.score * 100).toFixed(0)}%)`).join(", ")}`);
-      if (m.counters.length) lines.push(`  - ${m.name} BEATS: ${m.counters.map((c) => `${c.name} (${(c.score * 100).toFixed(0)}%)`).join(", ")}`);
+      if (m.checkedBy.length) lines.push(`  - Your ${m.name} is BEATEN BY (opposing): ${m.checkedBy.map((c) => `${c.name} (${(c.score * 100).toFixed(0)}%)`).join(", ")}`);
+      if (m.counters.length) lines.push(`  - Your ${m.name} BEATS (opposing): ${m.counters.map((c) => `${c.name} (${(c.score * 100).toFixed(0)}%)`).join(", ")}`);
     }
   }
   if (metaThreats?.length) {
@@ -1011,37 +1039,50 @@ function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects
 const BREAKDOWN_PROMPT =
   "Give me a strategic breakdown built around which Pokémon you'd actually bring together. Cover, in order:\n" +
   "• BEST BRING: the single strongest subset to bring, and how those specific Pokémon interact and cover for each other.\n" +
-  "• POTENTIAL OPENING PLAYS: present the strongest openings as 2–3 separate labeled options. In Doubles each option " +
-  "is a two-Pokémon LEAD PAIR (format \"A / B:\" then a brief 2-turn plan); in Singles each is a single lead. RANK them " +
-  "using the LEAD-PAIR SUCCESS data (real win rates) where available — the most POPULAR pair is NOT always the best, so " +
-  "prefer higher win rate while weighing sample size (n). You may also offer one promising option not in the data if " +
-  "its synergy is clear, but say it's not data-backed. For each option, write turn 1 and turn 2 giving BOTH active " +
-  "leads' actions on EACH turn — in Doubles both of your active Pokémon move every turn, so state a move (or switch) " +
-  "for EACH of the two, never just one. Label each turn with its role, e.g. \"Turn 1 (Setup): Whimsicott → Tailwind " +
-  "(doubles your Speed); Basculegion → Wave Crash (OHKOes X).\" / \"Turn 2 (Follow-up): …\". Any if/then read must " +
-  "branch on the OPPONENT's likely play while STILL stating what BOTH of your Pokémon do that turn (not use the " +
-  "branch to cover only one). Respect POSITIONING — only the two active Pokémon act, and bringing in a benched mon " +
-  "needs a switch that spends its turn. Ground the lead choice and turn-1 clicks in each member's 'Real-game openings' data (real lead rates + " +
-  "turn-1 plays), and don't mega more than one Pokémon. Use SPEED ORDER (real L50 speeds) to decide who moves " +
-  "first each turn, and when a turn-1 attack scores a KO, SAY SO using the damage-calc numbers (e.g. \"OHKOes\").\n" +
-  "  For EACH option give BOTH branches, not just the rosy one: (a) the FAVORABLE line when your attacks land the " +
-  "KOs, and (b) the UNFAVORABLE line — what to do when the opponent leads or reveals a Pokémon you CANNOT cleanly " +
-  "KO (use TOUGH TARGETS, and treat any meta Pokémon NOT in YOUR OFFENSE as one you have no guaranteed KO on) or " +
-  "that threatens your lead. Give a concrete answer for that case: switch to a resist/answer, Protect and reposition, " +
-  "pivot, chip then finish with priority, or set up — never assume you always get your good matchup, and don't just " +
-  "pick whichever opposing Pokémon your move happens to KO.\n" +
+  "• POTENTIAL OPENING PLAYS: you MUST present 2–3 DISTINCT labeled options (never just one, and never repeat the " +
+  "same pair twice). In Doubles each option is a different two-Pokémon LEAD PAIR (format \"A / B:\" then a brief " +
+  "2-turn plan); in Singles each is a single lead. RANK them using the LEAD-PAIR SUCCESS data (real win rates) where " +
+  "available — the most POPULAR pair is NOT always the best, so prefer higher win rate while weighing sample size " +
+  "(n). You may also offer one promising option not in the data if its synergy is clear, but say it's not data-backed. " +
+  "After the options, add ONE final line \"Best: <pair> — <one-clause reason>\" naming your top pick — do NOT restate " +
+  "its full turn-by-turn again. Each option has exactly TWO parts, in this order — do not mix " +
+  "them together or restate the turns twice:\n" +
+  "  1. THE PLAN (assumes it goes well): turn 1 and turn 2, giving BOTH active leads' actions on EACH turn — in " +
+  "Doubles both of your active Pokémon move every turn, so state a move (or switch) for EACH of the two, never just " +
+  "one. Label each turn with its role. Respect POSITIONING — only the two active Pokémon act, and bringing in a " +
+  "benched mon needs a switch that spends its turn. Ground the lead choice and turn-1 clicks in each member's " +
+  "'Real-game openings' data (real lead rates + turn-1 plays), and don't mega more than one Pokémon. Use SPEED " +
+  "ORDER (real L50 speeds) to decide who moves first each turn, and when a turn-1 attack scores a KO, SAY SO using " +
+  "the damage-calc numbers (e.g. \"OHKOes\").\n" +
+  "  2. IF IT GOES WRONG (1–2 sentences of real reasoning, not a second full turn-by-turn): what you do if the " +
+  "opponent leads or reveals a Pokémon you CANNOT cleanly KO (use TOUGH TARGETS, and treat any meta Pokémon NOT in " +
+  "YOUR OFFENSE as one you have no guaranteed KO on) or that threatens your lead. Pick the GENUINELY best response " +
+  "for that matchup — often it is NOT a reflexive switch: consider Protecting the threatened mon while its partner " +
+  "repositions or double-targets the threat, using priority, or bringing a hard check. Never assume you always get " +
+  "your good matchup, and don't just pick whichever opposing Pokémon your move happens to KO. SWITCH LEGALITY: a " +
+  "switch IS that slot's whole action, so the Pokémon you switch IN cannot also move (Protect or attack) that same " +
+  "turn — it acts NEXT turn and it EATS whatever hits its slot on entry, so only switch into a Pokémon that actually " +
+  "RESISTS or is IMMUNE to the incoming attack (never switch a mon into a move it's weak to) — check the \"Defensively\" " +
+  "line under that Pokémon in MEMBERS, don't guess type effectiveness. Never write \"switch A for B and B " +
+  "Protects/attacks\" in one turn.\n" +
+  "  Format each option as these four lines, filled in with THIS team's REAL Pokémon, moves, and threats from " +
+  "the data — output only real data, never any bracketed placeholder, example name, or the words \"Lead A\"/\"its " +
+  "move\"/\"target\": a header line \"<your lead A> / <your lead B>:\"; then a \"Turn 1 (Setup):\" line giving BOTH " +
+  "leads' actions separated by \"; \"; then a \"Turn 2 (Follow-up):\" line giving both again; then an \"If it goes " +
+  "wrong:\" line (1–2 sentences) naming the actual threat and a legal, matchup-sound adjustment.\n" +
   "• WIN CONDITION: the primary path to winning and what has to happen for it. Ground it in the real KO math — " +
   "name which of your attackers OHKO/2HKO the key meta Pokémon (from YOUR OFFENSE) and who you outspeed (SPEED ORDER).\n" +
   "• THREATS: use ONLY the computed super-effective list and the empirical checks/counters — name the specific " +
   "Pokémon and move, AND cite the real KO it lands on which of your Pokémon (e.g. \"Weavile's Icicle Crash is a " +
   "guaranteed OHKO on your Garchomp\"), using the damage-calc percentages/KO on the threat lines. Flag especially " +
   "any threat that OHKOes a member AND outspeeds it (per SPEED ORDER).\n" +
-  "• IMPROVE: the top one or two ways to improve the team.\n" +
+  "• IMPROVE: the top one or two ways to improve the team. If suggesting a Pokémon to add, it MUST be a species " +
+  "not already on the roster — check MEMBERS first.\n" +
   "Throughout, cite the concrete numbers provided — real damage %/KO (guaranteed OHKO, 2HKO) and Speed order — " +
   "rather than vague phrases like \"deals significant damage\"; that hard math is the point. Keep it tight and " +
   "actionable; never invent a damage, KO, speed, or type interaction not in the data.";
 
-function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, replayData, byId, smogonById, spriteByKey, openChip, onToggleChip, knowledgeEmbeddings }) {
+function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, replayData, byId, smogonById, spriteByKey, openChip, onToggleChip, knowledgeEmbeddings, chart }) {
   const [password, setPassword] = useState(() => loadPassword());
   const [loginInput, setLoginInput] = useState("");
   const [loginError, setLoginError] = useState(null);
@@ -1090,7 +1131,12 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
         `annotation like "(in Sun)" or "(in Grassy Terrain)" — this means an ability (e.g. Drought, Grassy Surge) ` +
         `on one of the two Pokémon in that matchup sets that field condition, and the number already accounts for ` +
         `it; ALWAYS keep that annotation when you cite the figure, and call out the weather/terrain as the reason ` +
-        `(e.g. "boosted by its own Drought-set Sun" or "halved by the Sun from its Drought").\n\n`
+        `(e.g. "boosted by its own Drought-set Sun" or "halved by the Sun from its Drought"). An INTERACTIONS ` +
+        `section, when present, lists concrete mechanic interactions detected on the board — weather/terrain ` +
+        `synergy, contact-punish items/abilities, immunity-enabled or unsafe spread moves, redirection shielding ` +
+        `a setup sweeper, Choice/Trick-Room clashes, opposing Intimidate, priority beating a faster foe. Treat it ` +
+        `as ground truth and weave it into openings and threat handling rather than re-deriving these interactions ` +
+        `yourself.\n\n`
       : "";
     const knowledgeRule = knowledgeChunks?.length
       ? `REFERENCE — a "RELEVANT STRATEGY KNOWLEDGE" section is included below with general competitive ` +
@@ -1156,12 +1202,26 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
       `reacts must be the one actually threatened by it, and the reaction must actually help that member. Protect ` +
       `only saves the Pokémon that clicks it, so "answer this threat with Protect" only works when the threatened ` +
       `Pokémon protects itself — Protecting a different member does nothing for the one under threat.\n\n` +
+      `CRITICAL — MOVE ATTRIBUTION: a Pokémon can use ONLY the moves listed under ITS OWN name in MEMBERS. Never ` +
+      `assign one member's move to another (e.g. if only Glimmora lists Earth Power, Basculegion CANNOT use Earth ` +
+      `Power). Every move you put in a turn-by-turn plan must appear on that exact Pokémon's move list.\n\n` +
+      `CRITICAL — OWN TEAM vs OPPONENT: the Pokémon under MEMBERS are YOURS. YOUR OFFENSE / COMPUTED THREATS name ` +
+      `OPPOSING meta Pokémon (the enemy team), even when a species also happens to be on your team (a mirror). Never ` +
+      `describe KOing your own member as an opening play — "OHKOes X" always means an OPPOSING X, so pick a KO on a ` +
+      `mon the opponent would actually bring, not on one of your own leads.\n\n` +
+      `CRITICAL — IMPROVE MUST NAME A NEW SPECIES: the current roster is ONLY these ${team.length}: ` +
+      `${team.map((p) => p.name.replace(/-/g, " ")).join(", ")}. The IMPROVE section may only suggest ADDING or ` +
+      `swapping in a Pokémon species that is NOT in that list — never recommend adding, drafting, or trying a ` +
+      `species that is already on the roster (it's already there). This applies even if that name also appears ` +
+      `elsewhere in the data, e.g. as the subject of an EMPIRICAL MATCHUPS BEATS/BEATEN BY line — that line reports ` +
+      `how your EXISTING member performs, not a proposed addition; do not turn 'your Basculegion BEATS Mawile-Mega' ` +
+      `into 'add Basculegion for Mawile-Mega coverage' — it's already on the team providing that coverage right now.\n\n` +
       positioningRule +
       choiceRule +
       knowledgeRule +
       `Be concise, specific, and concrete; prefer a few bullet points. Only use the provided data.\n\n` +
       `TEAM DATA:\n` +
-      buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, replayData, byId, calcFacts, knowledgeChunks)
+      buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, replayData, byId, calcFacts, knowledgeChunks, chart)
     );
   }
 
@@ -1369,9 +1429,19 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
             </p>
           ) : (
             <>
-              {aiBusy && !aiText && <p className="ctb-muted">Analyzing your team…</p>}
+              {aiBusy && !aiText && (
+                <p className="ctb-ai__loading ctb-muted">
+                  <span className="ctb-spinner" aria-hidden="true" />
+                  Analyzing your team…
+                </p>
+              )}
               {aiText && <TypedMarkdown className="ctb-ai__body" text={aiText} autoScroll />}
-              {aiBusy && aiText && <p className="ctb-muted">Updating…</p>}
+              {aiBusy && aiText && (
+                <p className="ctb-ai__loading ctb-muted">
+                  <span className="ctb-spinner" aria-hidden="true" />
+                  Updating…
+                </p>
+              )}
               {aiError && <div className="ctb-err">AI unavailable ({aiError}). Showing the rule-based analysis above.</div>}
             </>
           )}
