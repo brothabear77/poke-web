@@ -8,7 +8,10 @@ export const COACH_LOCAL = import.meta.env.DEV && import.meta.env.VITE_COACH_PRO
 // Routed through the Vite dev proxy (see vite.config.js) so the browser call is same-origin — no
 // CORS, no Ollama env tweaks. Maps to http://localhost:11434/v1/chat/completions.
 export const LOCAL_LLM_URL = "/local-llm/v1/chat/completions";
-export const LOCAL_LLM_MODEL = "qwen2.5:7b";
+// qwen2.5:14b (~9GB) — a 7B model fabricated facts and collapsed to one option under the coach's
+// full ~5-6K-token grounding; 14B holds it coherently and is a meaningful "floor" for gemini-flash
+// (fits comfortably in 24GB unified memory; ~40-90s per analysis, which is fine on the local path).
+export const LOCAL_LLM_MODEL = "qwen2.5:14b";
 
 // Base URL for the poke-smogon-data feed (normalized Smogon Champions stats). Same-origin in
 // production (both are brothabear77.github.io); in dev it fetches the live Pages site.

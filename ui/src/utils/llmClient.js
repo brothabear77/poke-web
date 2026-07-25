@@ -44,6 +44,11 @@ export async function callCoach({ system, messages, password }) {
   const body = {
     model: COACH_LOCAL ? LOCAL_LLM_MODEL : COACH_MODEL,
     messages: [{ role: "system", content: system }, ...messages],
+    // Low temperature ONLY in local mode: the coach's turn-by-turn output has a rigid structure
+    // (per-lead-pair, per-turn, per-active, favorable/unfavorable) that a small local model drifts
+    // off under default sampling. The proxy strips any field but model/messages before forwarding
+    // to Gemini, so this has no effect on production — scoped here deliberately, not a limitation.
+    ...(COACH_LOCAL ? { temperature: 0.2 } : {}),
   };
   const headers = { "content-type": "application/json" };
   if (!COACH_LOCAL) headers["x-app-password"] = password || "";

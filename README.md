@@ -94,13 +94,14 @@ One-time setup ([Ollama](https://ollama.com)):
 ```bash
 brew install ollama          # or download from ollama.com
 ollama serve                 # usually auto-runs as a background service
-ollama pull qwen2.5:7b       # ~5 GB — the model the coach calls
+ollama pull qwen2.5:14b      # ~9 GB — the model the coach calls (7B is too small; it fabricates)
 ```
 
 Then `npm run dev` and open the Team Builder — the coach auto-analyzes with no login prompt
 (look for the `Local LLM (dev)` badge). Notes:
 
-- **First response is slow** (a 7B model on the coach's large prompt can take 10–60s on CPU).
+- **Each analysis takes ~40–90s** (a 14B model on the coach's large grounding). A smaller model is
+  faster but fabricates facts and collapses the multi-option output, so 14B is the floor.
 - **RAG is off locally** (the knowledge corpus uses cloud embeddings); the coach still runs on
   its full structured + damage-calc grounding.
 - **Quality is a preview**, not a match for the production Gemini model.
