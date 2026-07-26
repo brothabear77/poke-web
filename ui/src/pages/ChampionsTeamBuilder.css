@@ -518,7 +518,23 @@
 }
 .ctb-qbtn:hover { background: #e2ebff; }
 
-.ctb-chat { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+/* Chat — its own section, separated from the AI analysis above */
+.ctb-chatbox {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #eee;
+}
+.ctb-chatbox > .ctb-report__h { margin-bottom: 10px; }
+
+.ctb-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 12px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
 .ctb-msg {
   max-width: 85%;
   padding: 8px 12px;

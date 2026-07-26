@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useData } from "../hooks/useData";
 import { useUsageFiles } from "../hooks/useUsageFiles";
 import { useSmogonFiles, useReplayData, useSmogonMeta } from "../hooks/useSmogonFiles";
@@ -39,6 +39,10 @@ const STAT_LABELS = [
   ["special-attack", "SpA"], ["special-defense", "SpD"], ["speed", "Spe"],
 ];
 const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+// " [Electric]" / " [Electric/Psychic]" — appended after any opposing-Pokémon name in the grounding
+// so the LLM never guesses a typing. Champions has original Mega formes whose typings differ from
+// other games (e.g. Raichu-Mega-X/Y are pure Electric, NOT Alolan Raichu's Electric/Psychic).
+const typeTag = (types) => (types?.length ? ` [${types.map(cap).join("/")}]` : "");
 const pct1 = (n) => (n == null ? null : `${(n * 100).toFixed(1)}%`);
 
 // Popularity label: Champions rank where we have it (the authentic figure), else the
@@ -908,10 +912,11 @@ function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects
   }
   if (empiricalMatchups?.length) {
     lines.push("");
-    lines.push("EMPIRICAL MATCHUPS (Smogon, same meta — real win rates from battle logs, not a type calculation; treat as GROUND TRUTH alongside the computed threats above. % is the winner's rate. Every Pokémon named as the SUBJECT of a line below — before \"is BEATEN BY\" / \"BEATS\" — is one of YOUR OWN roster members, already on the team; the names AFTER \"BEATEN BY\"/\"BEATS\" are the OPPOSING meta Pokémon it matches up against. This section is never a source of Pokémon to add.):");
+    lines.push("EMPIRICAL MATCHUPS (Smogon, same meta — real win rates from battle logs, not a type calculation; treat as GROUND TRUTH alongside the computed threats above. % is the winner's rate. Each OPPOSING Pokémon is given with its real typing in brackets like [Electric] — use that EXACT typing, never guess. Every Pokémon named as the SUBJECT of a line below — before \"is BEATEN BY\" / \"BEATS\" — is one of YOUR OWN roster members, already on the team; the names AFTER \"BEATEN BY\"/\"BEATS\" are the OPPOSING meta Pokémon it matches up against. This section is never a source of Pokémon to add.):");
+    const fmtOpp = (c) => `${c.name}${typeTag(byId?.get(c.key)?.types)} (${(c.score * 100).toFixed(0)}%)`;
     for (const m of empiricalMatchups) {
-      if (m.checkedBy.length) lines.push(`  - Your ${m.name} is BEATEN BY (opposing): ${m.checkedBy.map((c) => `${c.name} (${(c.score * 100).toFixed(0)}%)`).join(", ")}`);
-      if (m.counters.length) lines.push(`  - Your ${m.name} BEATS (opposing): ${m.counters.map((c) => `${c.name} (${(c.score * 100).toFixed(0)}%)`).join(", ")}`);
+      if (m.checkedBy.length) lines.push(`  - Your ${m.name} is BEATEN BY (opposing): ${m.checkedBy.map(fmtOpp).join(", ")}`);
+      if (m.counters.length) lines.push(`  - Your ${m.name} BEATS (opposing): ${m.counters.map(fmtOpp).join(", ")}`);
     }
   }
   // RECOMMENDED ADDITIONS — the exact same deterministic scoring (real Smogon teammate
@@ -930,8 +935,8 @@ function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects
   }
   if (metaThreats?.length) {
     lines.push("");
-    lines.push("OTHER COMMON META POKÉMON (popular in the format; discuss as offensive/utility threats if relevant, but do NOT assert any super-effective or immune matchup that isn't in the COMPUTED list above):");
-    lines.push("  " + metaThreats.slice(0, 15).map((t) => t.name).join(", "));
+    lines.push("OTHER COMMON META POKÉMON (popular in the format, each with its real typing in brackets — use that EXACT typing, never guess; discuss as offensive/utility threats if relevant, but do NOT assert any super-effective or immune matchup that isn't in the COMPUTED list above):");
+    lines.push("  " + metaThreats.slice(0, 15).map((t) => `${t.name}${typeTag(t.types)}`).join(", "));
   }
   if (knowledgeChunks?.length) {
     lines.push("");
@@ -1002,6 +1007,13 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+
+  // Keep the (scrollable) chat transcript pinned to its newest message.
+  const chatRef = useRef(null);
+  useEffect(() => {
+    const el = chatRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [chat, busy]);
 
   // Local dev mode (Ollama) needs no password — treat it as authed so the AI UI shows and the
   // login form is bypassed. In prod/proxy mode this is just !!password as before.
@@ -1119,6 +1131,12 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
       `OPPOSING meta Pokémon (the enemy team), even when a species also happens to be on your team (a mirror). Never ` +
       `describe KOing your own member as an opening play — "OHKOes X" always means an OPPOSING X, so pick a KO on a ` +
       `mon the opponent would actually bring, not on one of your own leads.\n\n` +
+      `CRITICAL — NEVER GUESS A TYPING: every Pokémon in the data (yours in MEMBERS, opponents in COMPUTED THREATS / ` +
+      `EMPIRICAL MATCHUPS / OTHER COMMON META) is given with its EXACT typing in brackets like [Electric] or ` +
+      `[Water/Ghost]. Use ONLY those bracketed typings. NEVER infer a Pokémon's typing from its name or from other ` +
+      `games — Pokémon Champions has ORIGINAL Mega formes whose typings differ from the mainline/other games (e.g. ` +
+      `Raichu-Mega-X and Raichu-Mega-Y are pure [Electric] here, NOT Alolan Raichu's Electric/Psychic). If a Pokémon ` +
+      `you want to mention has no bracketed typing in the data, do not state its typing at all.\n\n` +
       `CRITICAL — IMPROVE MUST NAME A NEW SPECIES FROM RECOMMENDED ADDITIONS: the current roster is ONLY these ` +
       `${team.length}: ${team.map((p) => p.name.replace(/-/g, " ")).join(", ")}. Never recommend adding, drafting, ` +
       `or trying a species that is already on the roster (it's already there). This applies even if that name also ` +
@@ -1240,8 +1258,20 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
     try {
       const chunks = await retrieveKnowledge(userText);
       const calcFacts = await computeCalc();
+      // Ground the chat in the SAME deterministic facts as the analysis (systemPrompt/buildFacts),
+      // PLUS the breakdown the user is actually looking at — otherwise follow-ups ("why lead X?")
+      // are answered by re-deriving from scratch, often inconsistently with the on-screen analysis.
+      let system = systemPrompt(chunks, calcFacts);
+      if (aiText) {
+        system +=
+          `\n\nYOUR CURRENT ANALYSIS — this is the breakdown you have already given the user for this ` +
+          `exact team, and it's on screen in front of them right now. Treat it as your own prior turn: ` +
+          `answer follow-up questions consistently with it (don't contradict its leads, KOs, or picks), ` +
+          `build on it, and only revise it if the user's question reveals a genuine error in it.\n\n` +
+          aiText;
+      }
       const reply = await callCoach({
-        system: systemPrompt(chunks, calcFacts),
+        system,
         messages: history.map((m) => ({ role: m.role, content: m.content })),
         password,
       });
@@ -1362,40 +1392,47 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
         </div>
       )}
 
-      {/* Chat transcript */}
-      {chat.length > 0 && (
-        <div className="ctb-chat">
-          {chat.map((m, i) => (
-            m.role === "assistant"
-              ? <TypedMarkdown key={i} className={`ctb-msg ctb-msg--${m.role}`} text={m.content} animate={i === chat.length - 1} />
-              : <div key={i} className={`ctb-msg ctb-msg--${m.role}`}>{m.content}</div>
-          ))}
-          {busy && <div className="ctb-msg ctb-msg--assistant ctb-muted">…thinking</div>}
-        </div>
-      )}
-      {error && <div className="ctb-err">{error}</div>}
+      {/* Chat — its own section (transcript + prompts), separate from the AI analysis above */}
+      {!report.empty && (chat.length > 0 || !authed || enoughForAI) && (
+        <div className="ctb-chatbox">
+          <div className="ctb-report__h ctb-report__h--syn">💬 Chat</div>
 
-      {/* Canned questions (rule-based) — only when AI isn't connected */}
-      {!authed && !report.empty && (
-        <div className="ctb-qbtns">
-          {COACH_QUESTIONS.map((q) => (
-            <button key={q.key} className="ctb-qbtn" onClick={() => ask(q.key)}>{q.label}</button>
-          ))}
-        </div>
-      )}
+          {/* Scrollable transcript */}
+          {chat.length > 0 && (
+            <div className="ctb-chat" ref={chatRef}>
+              {chat.map((m, i) => (
+                m.role === "assistant"
+                  ? <TypedMarkdown key={i} className={`ctb-msg ctb-msg--${m.role}`} text={m.content} animate={i === chat.length - 1} />
+                  : <div key={i} className={`ctb-msg ctb-msg--${m.role}`}>{m.content}</div>
+              ))}
+              {busy && <div className="ctb-msg ctb-msg--assistant ctb-muted">…thinking</div>}
+            </div>
+          )}
+          {error && <div className="ctb-err">{error}</div>}
 
-      {/* Free-form chat (needs login + a full bring) */}
-      {authed && enoughForAI && !report.empty && (
-        <div className="ctb-ask">
-          <input
-            className="ctb-ask__input"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") sendChat(); }}
-            placeholder="Ask the coach anything…"
-            disabled={busy}
-          />
-          <button className="ctb-btn" onClick={sendChat} disabled={busy || !input.trim()}>Send</button>
+          {/* Canned questions (rule-based) — only when AI isn't connected */}
+          {!authed && (
+            <div className="ctb-qbtns">
+              {COACH_QUESTIONS.map((q) => (
+                <button key={q.key} className="ctb-qbtn" onClick={() => ask(q.key)}>{q.label}</button>
+              ))}
+            </div>
+          )}
+
+          {/* Free-form chat (needs login + a full bring) */}
+          {authed && enoughForAI && (
+            <div className="ctb-ask">
+              <input
+                className="ctb-ask__input"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") sendChat(); }}
+                placeholder="Ask the coach anything…"
+                disabled={busy}
+              />
+              <button className="ctb-btn" onClick={sendChat} disabled={busy || !input.trim()}>Send</button>
+            </div>
+          )}
         </div>
       )}
     </div>
