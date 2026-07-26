@@ -8,6 +8,8 @@ import ItemBrowser from "./pages/ItemBrowser";
 import TeamBuilder from "./pages/TeamBuilder";
 import ChampionsUsage from "./pages/ChampionsUsage";
 import ChampionsTeamBuilder from "./pages/ChampionsTeamBuilder";
+import ChampionsScenarioOracle from "./pages/ChampionsScenarioOracle";
+import ComingSoon from "./pages/ComingSoon";
 import NotFound from "./pages/NotFound";
 import logo from "./assets/logo.png";
 import "./App.css";
@@ -57,6 +59,12 @@ function ChampionsDropdown({ onLinkClick }) {
           onClick={onLinkClick}
           role="menuitem"
         >Team Builder</NavLink>
+        <NavLink
+          to="/champions/matchup"
+          className={({ isActive }) => `nav-dropdown__item${isActive ? " active" : ""}`}
+          onClick={onLinkClick}
+          role="menuitem"
+        >Matchup</NavLink>
       </div>
     </div>
   );
@@ -118,6 +126,11 @@ export default function App() {
                 className={({ isActive }) => `nav-link nav-link--indent${isActive ? " active" : ""}`}
                 onClick={close}
               >Team Builder</NavLink>
+              <NavLink
+                to="/champions/matchup"
+                className={({ isActive }) => `nav-link nav-link--indent${isActive ? " active" : ""}`}
+                onClick={close}
+              >Matchup</NavLink>
             </div>
           </div>
         </nav>
@@ -134,6 +147,8 @@ export default function App() {
             <Route path="/champions" element={<Navigate to="/champions/usage" replace />} />
             <Route path="/champions/usage" element={<ChampionsUsage />} />
             <Route path="/champions/team-builder" element={<ChampionsTeamBuilder />} />
+            {/* Still WIP — only usable in local dev; deployed builds show a placeholder. */}
+            <Route path="/champions/matchup" element={import.meta.env.DEV ? <ChampionsScenarioOracle /> : <ComingSoon />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

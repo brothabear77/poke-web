@@ -259,3 +259,123 @@ export async function computeCalcFacts({ team, currentBuilds, threats, smogonByI
 
   return { incoming, outgoing, toughTargets, interactions, speedOrder };
 }
+
+// --- 1v1 scenario oracle ----------------------------------------------------
+// Deterministic head-to-head: real damage both directions, real speed, a "best move" per side,
+// and an explainable verdict — all from the same calc primitives above. This is NOT a battle
+// simulator: it assumes both Pokémon stay in and each repeatedly clicks its single best damaging
+// move, with no switching, status, recoil, stat changes, or multi-turn state. It's a closed-form
+// "hits needed to KO" race, not a turn-by-turn sim (the app has no @pkmn/sim).
+
+// "guaranteed OHKO" -> 1, "possible 2HKO" -> 2, etc.; no parseable KO -> Infinity (never KOs with
+// this move, at least not within the KO-chance calculator's horizon).
+function hitsToKo(ko) {
+  if (!ko) return Infinity;
+  if (/OHKO/.test(ko)) return 1;
+  const m = ko.match(/(\d+)HKO/);
+  return m ? parseInt(m[1], 10) : Infinity;
+}
+
+// Pick the side's best damaging move vs the given opponent mon: fewest hits-to-KO, then highest
+// damage as a tiebreak (including when neither move has a clean KO — most damage still "wins").
+function pickBestMove(mod, gen, attackerMon, attackerAbility, defenderMon, defenderAbility, moves, format, moveCache) {
+  const { field, note } = battleField(mod, format, attackerAbility, defenderAbility);
+  const rows = [];
+  for (const mv of moves || []) {
+    if (!mv) continue;
+    let move;
+    try { move = moveCache.get(mv) || moveCache.set(mv, new mod.Move(gen, mv)).get(mv); } catch { continue; }
+    if (!move || move.category === "Status") continue;
+    const f = koFact(mod, gen, attackerMon, defenderMon, mv, field, moveCache);
+    const priority = move.priority ?? 0;
+    rows.push({ name: mv, priority, result: f ? { ...f, str: f.str + note } : null });
+  }
+  const withDamage = rows.filter((r) => r.result);
+  if (!withDamage.length) return { moves: rows, best: null };
+  withDamage.sort((x, y) => {
+    const hx = hitsToKo(x.result.ko), hy = hitsToKo(y.result.ko);
+    if (hx !== hy) return hx - hy;
+    return y.result.hi - x.result.hi;
+  });
+  return { moves: rows, best: withDamage[0] };
+}
+
+const fmtName = (n) => n.replace(/-/g, " ");
+
+// Explainable, plain-English verdict. Turn order = priority first (a slower Pokémon's priority
+// move can still go first), Speed as the tiebreak. The "race" itself is a simple hits-to-KO
+// comparison: fewer hits wins; equal hits-to-KO is decided by whoever acts first each turn.
+function buildVerdict({ aName, bName, aSpe, bSpe, faster, aBest, bBest, winner, firstMover, priorityOverride }) {
+  const parts = [];
+  if (faster === "tie") parts.push(`${aName} and ${bName} have the same effective Speed (${aSpe}).`);
+  else {
+    const [fastName, fastSpe, slowName, slowSpe] = faster === "a" ? [aName, aSpe, bName, bSpe] : [bName, bSpe, aName, aSpe];
+    parts.push(`${fastName} outspeeds ${slowName} (${fastSpe} > ${slowSpe}).`);
+  }
+  if (priorityOverride) {
+    const fm = firstMover === "a" ? aBest : bBest;
+    const fmName = firstMover === "a" ? aName : bName;
+    const otherName = firstMover === "a" ? bName : aName;
+    parts.push(`${fmName}'s ${fm.name} has priority, so it acts first despite ${otherName} ${faster === firstMover ? "also" : "being faster"}.`);
+  }
+  parts.push(aBest ? `${aName}'s ${aBest.name} vs ${bName}: ${aBest.result.str}.` : `${aName} has no resolvable damaging move against ${bName}.`);
+  parts.push(bBest ? `${bName}'s ${bBest.name} vs ${aName}: ${bBest.result.str}.` : `${bName} has no resolvable damaging move against ${aName}.`);
+  if (winner === "unclear") parts.push("Too close to call — neither side has a clean KO with its best move.");
+  else if (winner === "even") parts.push("Dead even — same effective Speed and hits-to-KO; this comes down to a Speed tie.");
+  else parts.push(`${winner === "a" ? aName : bName} wins this exchange.`);
+  return parts.join(" ");
+}
+
+// a, b: { entry: rosterEntry {name,types,stats}, build: {ability,item,nature,evs,moves} }.
+export async function computeMatchup({ a, b, format }) {
+  const { mod, gen } = await loadCalc();
+  const moveCache = new Map();
+
+  const aMon = toCalcMon(mod, gen, a.entry, a.build);
+  const bMon = toCalcMon(mod, gen, b.entry, b.build);
+  const aAbility = a.build?.ability || null;
+  const bAbility = b.build?.ability || null;
+
+  const { moves: aMoves, best: aBest } = pickBestMove(mod, gen, aMon, aAbility, bMon, bAbility, a.build?.moves, format, moveCache);
+  const { moves: bMoves, best: bBest } = pickBestMove(mod, gen, bMon, bAbility, aMon, aAbility, b.build?.moves, format, moveCache);
+
+  const aSpe = aMon.stats.spe;
+  const bSpe = bMon.stats.spe;
+  const aScarf = a.build?.item === "Choice Scarf";
+  const bScarf = b.build?.item === "Choice Scarf";
+  const aEffSpe = aScarf ? Math.floor(aSpe * 1.5) : aSpe;
+  const bEffSpe = bScarf ? Math.floor(bSpe * 1.5) : bSpe;
+  const faster = aEffSpe > bEffSpe ? "a" : bEffSpe > aEffSpe ? "b" : "tie";
+  let speedNote = "";
+  if (aScarf) speedNote += ` ${fmtName(a.entry.name)} Choice Scarf → ${aEffSpe}.`;
+  if (bScarf) speedNote += ` ${fmtName(b.entry.name)} Choice Scarf → ${bEffSpe}.`;
+
+  // Turn order for the race: higher-priority best move acts first regardless of Speed; equal
+  // priority falls back to effective Speed (mirrors the interaction-rules "priority beats a
+  // faster foe" rule already used elsewhere in this file).
+  const aPriority = aBest?.priority || 0;
+  const bPriority = bBest?.priority || 0;
+  const priorityOverride = aPriority !== bPriority;
+  const firstMover = priorityOverride ? (aPriority > bPriority ? "a" : "b") : faster;
+
+  const hitsA = hitsToKo(aBest?.result?.ko); // hits A needs to KO B
+  const hitsB = hitsToKo(bBest?.result?.ko); // hits B needs to KO A
+  let winner;
+  if (hitsA === Infinity && hitsB === Infinity) winner = "unclear";
+  else if (hitsA < hitsB) winner = "a";
+  else if (hitsB < hitsA) winner = "b";
+  else winner = firstMover === "tie" ? "even" : firstMover;
+
+  const aName = fmtName(a.entry.name);
+  const bName = fmtName(b.entry.name);
+  const text = buildVerdict({
+    aName, bName, aSpe: aEffSpe, bSpe: bEffSpe, faster, aBest, bBest, winner, firstMover, priorityOverride,
+  });
+
+  return {
+    a: { spe: aSpe, moves: aMoves, best: aBest },
+    b: { spe: bSpe, moves: bMoves, best: bBest },
+    speed: { faster, aSpe: aEffSpe, bSpe: bEffSpe, note: speedNote.trim() },
+    verdict: { winner, text },
+  };
+}

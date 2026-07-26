@@ -17,6 +17,13 @@ let replayPromise = null;
 let metaCache = null;        // { source, month, regulation, formats, cutoff, battles, ... }
 let metaPromise = null;
 
+// Stable empty-array singleton: `useSmogonIndex` must NOT return a fresh `[]` literal while
+// data is loading, or every consumer downstream (useMemo/useEffect deps keyed on the `index`
+// reference) sees a "new" value on every render — a classic cascade into runaway re-renders
+// (confirmed: it caused a genuine "Maximum update depth exceeded" loop in a page that keyed an
+// effect on data derived from this index while loading).
+const EMPTY_INDEX = [];
+
 export function useSmogonIndex() {
   const [index, setIndex] = useState(indexCache);
   const [loading, setLoading] = useState(!indexCache);
@@ -33,7 +40,7 @@ export function useSmogonIndex() {
     return () => { cancelled = true; };
   }, []);
 
-  return { index: index || [], loading };
+  return { index: index || EMPTY_INDEX, loading };
 }
 
 // Replay-derived opening data (leads / turn-1 plays / lead partners), loaded once. Returns

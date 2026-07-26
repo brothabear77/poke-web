@@ -1,25 +1,17 @@
 .nf {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 400px;
-}
-
-.nf__card {
   text-align: center;
-  max-width: 420px;
-  background: #fff;
-  border-radius: 16px;
-  padding: 48px 40px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
-  border: 1px solid #e0e0e0;
+  height: calc(100vh - 108px);
 }
 
 .nf__code {
   display: block;
   font-size: 4rem;
   font-weight: 900;
-  color: #CE0022;
+  color: #fff;
   line-height: 1;
   margin-bottom: 12px;
 }
@@ -27,12 +19,14 @@
 .nf__title {
   font-size: 1.4rem;
   font-weight: 800;
+  color: #fff;
   margin: 0 0 12px;
 }
 
 .nf__desc {
-  font-size: 0.92rem;
-  color: #666;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.75);
   line-height: 1.6;
   margin: 0 0 28px;
 }
@@ -40,8 +34,8 @@
 .nf__btn {
   display: inline-block;
   padding: 10px 28px;
-  background: #CE0022;
-  color: #fff;
+  background: #fff;
+  color: #CE0022;
   border-radius: 20px;
   font-size: 0.88rem;
   font-weight: 700;
@@ -50,5 +44,5 @@
 }
 
 .nf__btn:hover {
-  background: #a8001b;
+  background: rgba(255,255,255,0.85);
 }
