@@ -1,0 +1,230 @@
+.cso-loading {
+  padding: 60px;
+  text-align: center;
+  color: #fff;
+  font-size: 1.05rem;
+}
+
+.cso-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cso-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.cso-h1 { font-size: 1.4rem; font-weight: 800; color: #fff; margin: 0; }
+.cso-intro { color: rgba(255,255,255,0.85); font-size: 0.85rem; margin: 0; max-width: 720px; }
+
+.cso-fmt { display: flex; gap: 8px; }
+.cso-fmt__btn {
+  padding: 6px 18px;
+  border-radius: 20px;
+  border: 2px solid rgba(255,255,255,0.4);
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.cso-fmt__btn.active { background: #fff; color: #CE0022; border-color: #fff; }
+
+.cso-panel {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.cso-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.cso-panel__title { font-size: 1.05rem; font-weight: 800; margin: 0; }
+
+.cso-btn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: none;
+  background: #CE0022;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.82rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+.cso-btn--ghost { background: none; color: #777; border: 1px solid #ddd; }
+.cso-btn--ghost:hover { background: #f5f5f5; }
+
+/* Two-side layout */
+.cso-sides {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 14px;
+  align-items: start;
+}
+.cso-vs {
+  align-self: center;
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: #fff;
+  background: rgba(0,0,0,0.25);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+@media (max-width: 720px) {
+  .cso-sides { grid-template-columns: 1fr; }
+  .cso-vs { justify-self: center; }
+}
+
+/* Roster picker */
+.cso-search { position: relative; display: flex; margin-bottom: 10px; }
+.cso-search__input {
+  flex: 1;
+  padding: 6px 28px 6px 11px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-family: inherit;
+  outline: none;
+}
+.cso-search__input:focus { border-color: #5a8ef8; }
+.cso-search__clear {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; color: #bbb; font-size: 0.8rem;
+}
+.cso-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.cso-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 4px;
+  border: 1px solid #cdd4de;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: center;
+}
+.cso-tile:hover { outline: 2px solid #5a8ef8; outline-offset: -2px; }
+.cso-tile__sprite { width: 44px; height: 44px; object-fit: contain; image-rendering: pixelated; }
+.cso-tile__name { font-size: 0.72rem; font-weight: 700; text-transform: capitalize; line-height: 1.1; }
+.cso-tile__types { display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; }
+
+/* Picked mon + build editor */
+.cso-picked { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.cso-picked__sprite { width: 56px; height: 56px; object-fit: contain; image-rendering: pixelated; }
+.cso-picked__name { font-weight: 800; font-size: 0.95rem; text-transform: capitalize; }
+.cso-picked__mega {
+  margin-left: 6px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  background: #ffe1a8;
+  color: #a15c00;
+  border-radius: 6px;
+  padding: 1px 5px;
+}
+.cso-picked__types { display: flex; gap: 4px; margin-top: 3px; }
+
+.cso-editor {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.cso-field { display: flex; flex-direction: column; gap: 4px; }
+.cso-field__label {
+  font-size: 0.66rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #999;
+}
+.cso-field select,
+.cso-editor__moves select {
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  border-radius: 7px;
+  font-size: 0.8rem;
+  font-family: inherit;
+  background: #fff;
+  outline: none;
+}
+.cso-field select:focus,
+.cso-editor__moves select:focus { border-color: #5a8ef8; }
+.cso-editor__moves { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 4px; }
+.cso-editor__moves-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+/* Results */
+.cso-computing { color: #888; font-size: 0.85rem; font-style: italic; }
+.cso-speed {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.cso-speed__vs { color: #aaa; font-weight: 600; font-size: 0.75rem; }
+.cso-speed__winner { color: #2e9e5b; }
+.cso-speed__note { color: #888; font-weight: 500; font-size: 0.75rem; }
+
+.cso-moves-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+@media (max-width: 560px) { .cso-moves-cols { grid-template-columns: 1fr; } }
+.cso-moves-col__label { font-size: 0.72rem; font-weight: 800; color: #999; text-transform: capitalize; margin-bottom: 4px; }
+.cso-move {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.8rem;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+.cso-move--best { background: #fde8ec; font-weight: 700; }
+.cso-move__name { text-transform: capitalize; }
+.cso-move__result { color: #666; text-align: right; }
+.cso-move--best .cso-move__result { color: #CE0022; }
+
+.cso-verdict {
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-bottom: 10px;
+}
+.cso-verdict--win { background: #e7f3ec; color: #206a3c; }
+.cso-verdict--lose { background: #fde8ec; color: #a3001a; }
+.cso-verdict--even { background: #eef0f5; color: #555; }
+
+.cso-caveats { font-size: 0.7rem; color: #999; line-height: 1.4; }

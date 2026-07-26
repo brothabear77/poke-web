@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useData } from "../hooks/useData";
 import { useUsageFiles } from "../hooks/useUsageFiles";
-import { useSmogonIndex, useSmogonFiles, useReplayData, useSmogonMeta } from "../hooks/useSmogonFiles";
-import { pokeIdByName, spriteId, smogonKeyForPokeName } from "../utils/smogonRoster";
+import { useSmogonFiles, useReplayData, useSmogonMeta } from "../hooks/useSmogonFiles";
+import { useChampionsRoster } from "../hooks/useChampionsRoster";
+import { loadJson } from "../utils/championsTeamStore";
 import { buildChart, ALL_TYPES, defenseMultiplier } from "../utils/typeChart";
 import { analyzeTeam } from "../utils/teamSuggest";
 import {
@@ -45,26 +46,9 @@ const pct1 = (n) => (n == null ? null : `${(n * 100).toFixed(1)}%`);
 const usageLabel = (p, format) =>
   p.champRank ? `Champions #${p.champRank}` : (pct1(p.usage?.[format]) ? `${pct1(p.usage[format])} usage` : "");
 
-function loadJson(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 export default function ChampionsTeamBuilder() {
-  // Roster + build data: Smogon (poke-smogon-data) is PRIMARY — same metagame as
-  // Champions, richer (checks/counters, weighted teammates, full sets), and covers
-  // Mega formes Champions' own site doesn't list (Mega is a held-item mechanic there,
-  // and several Champions-original megas don't exist in the base games at all).
-  // Champions' own site is a fresher (daily vs. Smogon's monthly) usage-rank overlay.
-  const { index: smogonIndex, loading: smogonLoading } = useSmogonIndex();
   const replayData = useReplayData();
   const smogonMeta = useSmogonMeta();
-  const { data: allPokemon, loading: indexLoading } = useData("/data/pokemon-index.json");
-  const { data: champUsageIndex } = useData("/data/usage/_index.json");
   const { data: movesIndex } = useData("/data/moves-index.json");
   const { data: itemsIndex } = useData("/data/items-index.json");
   const { data: abilitiesIndex } = useData("/data/abilities-index.json");
@@ -87,107 +71,13 @@ export default function ChampionsTeamBuilder() {
   // Back to page 1 whenever the filtered roster changes (search or format).
   useEffect(() => { setRosterPage(1); }, [rosterSearch, format]);
 
-  // PokeAPI id lookup (by normalized name), for sprite resolution only.
-  const idByName = useMemo(() => pokeIdByName(allPokemon), [allPokemon]);
-  const pokeNameById = useMemo(() => {
-    const m = new Map();
-    for (const p of allPokemon || []) m.set(p.id, p.name);
-    return m;
-  }, [allPokemon]);
-  // Champions' own usage index joined to Smogon species keys (via each entry's PokeAPI name
-  // + form aliases). Champions is the authentic usage-rate source — players earn Pokémon, so
-  // its popularity differs from Showdown's free-access ladder, and it refreshes daily.
-  const champBySmogonKey = useMemo(() => {
-    const m = new Map();
-    for (const c of champUsageIndex || []) {
-      const pname = pokeNameById.get(c.id);
-      if (pname) m.set(smogonKeyForPokeName(pname), c);
-    }
-    return m;
-  }, [champUsageIndex, pokeNameById]);
-  // Mega forme key -> its base species key (base records carry the `megas` list).
-  const megaToBaseKey = useMemo(() => {
-    const m = new Map();
-    for (const e of smogonIndex) if (e.megas) for (const mk of e.megas) m.set(mk, e.key);
-    return m;
-  }, [smogonIndex]);
-
-  // The full roster (305: base species + Mega formes as separate tiles), ranked by the active
-  // format's CHAMPIONS usage rank (a mega inherits its base species' rank — in-game the base's
-  // usage is essentially the mega's, since the Mega Stone is its top item). Species Smogon has
-  // but Champions doesn't rank fall to the end by Smogon usage. `id` is the Smogon species key
-  // throughout — the one canonical identifier for team/builds/analysis.
-  const championsPokemon = useMemo(() => {
-    const rankKey = format === "Doubles" ? "doubles_rank" : "singles_rank";
-    const smogonKeys = new Set(smogonIndex.map((e) => e.key));
-    const smogonSourced = smogonIndex.map((e) => {
-      const baseKey = e.isMega ? megaToBaseKey.get(e.key) : e.key;
-      const champEntry = baseKey ? champBySmogonKey.get(baseKey) : null;
-      return {
-        id: e.key,
-        name: e.name,
-        types: e.types,
-        bst: e.bst,
-        stats: e.baseStats,
-        num: e.num,
-        isMega: e.isMega,
-        megas: e.megas,
-        spriteId: spriteId(e, idByName),
-        usage: e.usage,
-        champId: champEntry?.id ?? null,
-        champRank: champEntry?.[rankKey] ?? null,
-        noSmogon: false,
-      };
-    });
-    // A few legal Champions Pokémon have no Showdown-ladder usage, so Smogon has no stats for
-    // them (e.g. Watchog, or base formes of mons only ever run mega-evolved). Add them from
-    // PokeAPI metadata + Champions usage, flagged so the UI marks the missing Smogon data
-    // (no empirical checks/counters, sets from Champions only).
-    const pokeById = new Map((allPokemon || []).map((p) => [p.id, p]));
-    const champOnly = [];
-    for (const c of champUsageIndex || []) {
-      const pname = pokeNameById.get(c.id);
-      if (!pname) continue;
-      const key = smogonKeyForPokeName(pname);
-      if (smogonKeys.has(key)) continue; // already covered by Smogon
-      const p = pokeById.get(c.id);
-      if (!p) continue;
-      champOnly.push({
-        id: key,
-        name: c.name,
-        types: p.types,
-        bst: p.bst ?? Object.values(p.stats || {}).reduce((s, v) => s + v, 0),
-        stats: p.stats,
-        num: p.id,
-        isMega: false,
-        megas: undefined,
-        spriteId: p.id,
-        usage: { Doubles: null, Singles: null },
-        champId: c.id,
-        champRank: c[rankKey] ?? null,
-        noSmogon: true,
-      });
-    }
-    return [...smogonSourced, ...champOnly].sort((a, b) => {
-      const ra = a.champRank ?? Infinity, rb = b.champRank ?? Infinity;
-      if (ra !== rb) return ra - rb;               // Champions rank first
-      if (a.isMega !== b.isMega) return a.isMega ? 1 : -1; // base before its mega
-      return (b.usage?.[format] ?? 0) - (a.usage?.[format] ?? 0); // Smogon usage tiebreak
-    });
-  }, [smogonIndex, idByName, champBySmogonKey, megaToBaseKey, format, allPokemon, champUsageIndex, pokeNameById]);
-
-  const byId = useMemo(() => {
-    const m = new Map();
-    for (const p of championsPokemon) m.set(p.id, p);
-    return m;
-  }, [championsPokemon]);
-
-  // Smogon species key → sprite id, for rendering checks/counters as sprites.
-  const spriteByKey = useMemo(() => {
-    const m = new Map();
-    for (const p of championsPokemon) m.set(p.id, p.spriteId);
-    return m;
-  }, [championsPokemon]);
+  // Roster + build data: Smogon (poke-smogon-data) is PRIMARY — same metagame as Champions,
+  // richer (checks/counters, weighted teammates, full sets), and covers Mega formes Champions'
+  // own site doesn't list. Champions' own site is a fresher (daily vs. monthly) usage overlay.
+  // `championsPokemon.id` is the Smogon species key throughout — the one canonical identifier
+  // for team/builds/analysis. Shared with any other page that needs the roster (e.g. the
+  // Scenario Oracle) via useChampionsRoster.
+  const { roster: championsPokemon, byId, spriteByKey, loading: rosterLoading } = useChampionsRoster(format);
 
   // Load Smogon build data for the team AND the top meta threats, so threat analysis
   // and recommendations can read real movesets/checks (not just typings).
@@ -367,7 +257,7 @@ export default function ChampionsTeamBuilder() {
       .slice(0, 6);
   }, [empiricalMatchups]);
 
-  if (indexLoading || smogonLoading) return <div className="ctb-loading">Loading Champions data…</div>;
+  if (rosterLoading) return <div className="ctb-loading">Loading Champions data…</div>;
 
   return (
     <div className="ctb-page">
@@ -590,6 +480,7 @@ export default function ChampionsTeamBuilder() {
         onToggleChip={toggleChip}
         knowledgeEmbeddings={knowledgeEmbeddings}
         chart={chart}
+        recommendations={recommendations}
       />
 
       {/* Full roster picker */}
@@ -842,7 +733,7 @@ const SPE_DOWN = new Set(["Brave", "Relaxed", "Quiet", "Sassy"]);
 // of each ability / move / item straight from the data indexes, so the model can
 // reason about how the mechanics work and how they interact — and so a future
 // season's new mechanics are covered automatically (no hardcoding).
-function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, replayData, byId, calcFacts, knowledgeChunks, chart) {
+function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, replayData, byId, calcFacts, knowledgeChunks, chart, recommendations) {
   if (report.empty) return "The team is empty.";
   const bringCount = format === "Doubles" ? 4 : 3;
   const roleById = new Map(report.roles.map((r) => [r.id, r.role]));
@@ -1023,6 +914,20 @@ function buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects
       if (m.counters.length) lines.push(`  - Your ${m.name} BEATS (opposing): ${m.counters.map((c) => `${c.name} (${(c.score * 100).toFixed(0)}%)`).join(", ")}`);
     }
   }
+  // RECOMMENDED ADDITIONS — the exact same deterministic scoring (real Smogon teammate
+  // co-occurrence + type-synergy) that ranks the "Recommended Teammates" panel elsewhere on this
+  // page. The IMPROVE section must draw any suggested addition from here so the two never
+  // diverge — no free-associated species names.
+  if (recommendations?.length) {
+    lines.push("");
+    lines.push("RECOMMENDED ADDITIONS (deterministic — the SAME ranking shown in the app's \"Recommended Teammates\" panel, based on real Smogon teammate co-occurrence % plus type-synergy/coverage scoring; ranked best-first; treat as GROUND TRUTH for what to suggest in IMPROVE. Do NOT propose any addition not on this list):");
+    for (const r of recommendations.slice(0, 8)) {
+      lines.push(`  - ${r.pokemon.name.replace(/-/g, " ")} [${r.pokemon.types.join("/")}]: ${r.reason}`);
+    }
+  } else {
+    lines.push("");
+    lines.push("RECOMMENDED ADDITIONS: none available (the roster is full at 6, or no scored candidates loaded yet). Do NOT invent a species to add in IMPROVE — instead suggest a moveset, item, EV, or role adjustment to an existing member.");
+  }
   if (metaThreats?.length) {
     lines.push("");
     lines.push("OTHER COMMON META POKÉMON (popular in the format; discuss as offensive/utility threats if relevant, but do NOT assert any super-effective or immune matchup that isn't in the COMPUTED list above):");
@@ -1076,13 +981,15 @@ const BREAKDOWN_PROMPT =
   "Pokémon and move, AND cite the real KO it lands on which of your Pokémon (e.g. \"Weavile's Icicle Crash is a " +
   "guaranteed OHKO on your Garchomp\"), using the damage-calc percentages/KO on the threat lines. Flag especially " +
   "any threat that OHKOes a member AND outspeeds it (per SPEED ORDER).\n" +
-  "• IMPROVE: the top one or two ways to improve the team. If suggesting a Pokémon to add, it MUST be a species " +
-  "not already on the roster — check MEMBERS first.\n" +
+  "• IMPROVE: the top one or two ways to improve the team. If suggesting a Pokémon to add, it MUST be chosen from " +
+  "the RECOMMENDED ADDITIONS list (if present) — do not invent a species, and explain the pick using its listed " +
+  "reason plus any relevant matchup context you have. If RECOMMENDED ADDITIONS says none are available, suggest a " +
+  "moveset/item/EV/role adjustment to an existing member instead of naming a new species.\n" +
   "Throughout, cite the concrete numbers provided — real damage %/KO (guaranteed OHKO, 2HKO) and Speed order — " +
   "rather than vague phrases like \"deals significant damage\"; that hard math is the point. Keep it tight and " +
   "actionable; never invent a damage, KO, speed, or type interaction not in the data.";
 
-function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, replayData, byId, smogonById, spriteByKey, openChip, onToggleChip, knowledgeEmbeddings, chart }) {
+function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, replayData, byId, smogonById, spriteByKey, openChip, onToggleChip, knowledgeEmbeddings, chart, recommendations }) {
   const [password, setPassword] = useState(() => loadPassword());
   const [loginInput, setLoginInput] = useState("");
   const [loginError, setLoginError] = useState(null);
@@ -1114,8 +1021,11 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
     const kSig = knowledgeEmbeddings?.length || 0;
     // Re-run once replay openings load (null -> data).
     const rSig = replayData ? "R" : "r";
-    return `${teamSig}|${format}|${threatSig}|${checksSig}|k${kSig}|${rSig}`;
-  }, [team, currentBuilds, format, report.empty, threats, empiricalMatchups, replayData, knowledgeEmbeddings]);
+    // Re-run once the deterministic teammate recommendations (Recommended Teammates panel) load
+    // or change, so IMPROVE stays in sync with that panel.
+    const recSig = (recommendations || []).map((r) => r.pokemon.id).join(",");
+    return `${teamSig}|${format}|${threatSig}|${checksSig}|k${kSig}|${rSig}|rec${recSig}`;
+  }, [team, currentBuilds, format, report.empty, threats, empiricalMatchups, replayData, knowledgeEmbeddings, recommendations]);
 
   const bringCount = format === "Doubles" ? 4 : 3;
   // AI analysis only makes sense once a full "bring" is selected (4 doubles / 3 singles).
@@ -1209,19 +1119,23 @@ function CoachPanel({ report, team, currentBuilds, format, moveMap, abilityEffec
       `OPPOSING meta Pokémon (the enemy team), even when a species also happens to be on your team (a mirror). Never ` +
       `describe KOing your own member as an opening play — "OHKOes X" always means an OPPOSING X, so pick a KO on a ` +
       `mon the opponent would actually bring, not on one of your own leads.\n\n` +
-      `CRITICAL — IMPROVE MUST NAME A NEW SPECIES: the current roster is ONLY these ${team.length}: ` +
-      `${team.map((p) => p.name.replace(/-/g, " ")).join(", ")}. The IMPROVE section may only suggest ADDING or ` +
-      `swapping in a Pokémon species that is NOT in that list — never recommend adding, drafting, or trying a ` +
-      `species that is already on the roster (it's already there). This applies even if that name also appears ` +
-      `elsewhere in the data, e.g. as the subject of an EMPIRICAL MATCHUPS BEATS/BEATEN BY line — that line reports ` +
-      `how your EXISTING member performs, not a proposed addition; do not turn 'your Basculegion BEATS Mawile-Mega' ` +
-      `into 'add Basculegion for Mawile-Mega coverage' — it's already on the team providing that coverage right now.\n\n` +
+      `CRITICAL — IMPROVE MUST NAME A NEW SPECIES FROM RECOMMENDED ADDITIONS: the current roster is ONLY these ` +
+      `${team.length}: ${team.map((p) => p.name.replace(/-/g, " ")).join(", ")}. Never recommend adding, drafting, ` +
+      `or trying a species that is already on the roster (it's already there). This applies even if that name also ` +
+      `appears elsewhere in the data, e.g. as the subject of an EMPIRICAL MATCHUPS BEATS/BEATEN BY line — that line ` +
+      `reports how your EXISTING member performs, not a proposed addition; do not turn 'your Basculegion BEATS ` +
+      `Mawile-Mega' into 'add Basculegion for Mawile-Mega coverage' — it's already on the team providing that ` +
+      `coverage right now. Further, if you suggest ADDING a Pokémon at all, it MUST be one named in the ` +
+      `RECOMMENDED ADDITIONS section — that is the exact same real, data-backed ranking shown in this app's ` +
+      `"Recommended Teammates" panel (Smogon teammate co-occurrence + type-synergy scoring), so your suggestion ` +
+      `must match it rather than diverge with a different, invented pick. If RECOMMENDED ADDITIONS lists none, do ` +
+      `not name any species — suggest a build/moveset change to an existing member instead.\n\n` +
       positioningRule +
       choiceRule +
       knowledgeRule +
       `Be concise, specific, and concrete; prefer a few bullet points. Only use the provided data.\n\n` +
       `TEAM DATA:\n` +
-      buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, replayData, byId, calcFacts, knowledgeChunks, chart)
+      buildFacts(report, team, currentBuilds, format, moveMap, abilityEffects, itemEffects, metaThreats, threats, empiricalMatchups, replayData, byId, calcFacts, knowledgeChunks, chart, recommendations)
     );
   }
 
