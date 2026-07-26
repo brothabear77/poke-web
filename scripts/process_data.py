@@ -206,6 +206,11 @@ for ab_entry in ability_index["results"]:
         None
     )
     ability_desc[ab["name"]] = short
+    # Exclude spinoff-only abilities (Conquest, etc.) from the standalone browse index — they're
+    # not usable in the mainline games / Champions. PokéAPI flags these `is_main_series: false`
+    # (e.g. "Aqua Boost"). `ability_desc` above stays complete for any per-Pokémon lookups.
+    if not ab.get("is_main_series", True):
+        continue
     abilities_out.append({
         "name": ab["name"],
         "display_name": en_name(ab.get("names", []), ab["name"]),
