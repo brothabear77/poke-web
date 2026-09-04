@@ -1,10 +1,11 @@
 {
   "source": "championsbattledata.com",
-  "data_version": "20260724131812318",
-  "fetched_at": "2026-07-24T13:18:12.318Z",
+  "data_version": "20260903163627216",
+  "fetched_at": "2026-09-03T16:36:27.216Z",
   "pokemon_count": 235,
   "unmapped": [
-    "fan-rotom"
+    "fan-rotom",
+    "mega-gallade"
   ],
   "fully_failed": [],
   "failed_requests": []
